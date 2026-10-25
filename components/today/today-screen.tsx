@@ -183,7 +183,8 @@ function AttentionRow({ b, loadFix }: { b: BookingListItem; loadFix: boolean }) 
           <Skeleton className="mt-2 h-4 w-2/3" />
         ) : null}
         <span className="num mt-1.5 block text-caption text-muted">
-          {b.redCount} to fix · {b.amberCount} to check · {relativeTime(b.lastActivityAt)}
+          {b.redCount + b.amberCount > 0 ? `${b.redCount} to fix · ${b.amberCount} to check · ` : "Input problem · "}
+          {relativeTime(b.lastActivityAt)}
         </span>
       </Link>
     </li>
