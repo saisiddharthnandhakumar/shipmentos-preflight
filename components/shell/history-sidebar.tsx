@@ -13,7 +13,7 @@ export function LogoMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden className={className}>
       <rect x="2" y="3" width="20" height="13" rx="3" fill="var(--accent)" />
-      <path d="M6 7.5h12M6 11.5h8" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M6 7.5h12M6 11.5h8" stroke="var(--on-accent)" strokeWidth="1.8" strokeLinecap="round" />
       <rect x="3" y="18" width="5" height="3" rx="1" fill="var(--ink)" />
       <rect x="9.5" y="18" width="5" height="3" rx="1" fill="var(--ink)" />
       <rect x="16" y="18" width="5" height="3" rx="1" fill="var(--ink)" />
@@ -22,10 +22,10 @@ export function LogoMark({ className }: { className?: string }) {
 }
 
 const STATUS_DOT: Record<string, string> = {
-  Blocked: "bg-[#c4242a]",
-  "Needs attention": "bg-[#d97706]",
-  "Ready to submit": "bg-[#247b50]",
-  Draft: "bg-[#9b98ad]",
+  Blocked: "bg-negative",
+  "Needs attention": "bg-dot-amber",
+  "Ready to submit": "bg-positive",
+  Draft: "bg-dot-draft",
 };
 
 export function HistorySidebar({ onNavigate }: { onNavigate?: () => void }) {
@@ -87,7 +87,7 @@ export function HistorySidebar({ onNavigate }: { onNavigate?: () => void }) {
             onNavigate?.();
             router.push(`/chat?new=${Date.now().toString(36)}`);
           }}
-          className="flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-control bg-white text-sm font-medium text-text hover:bg-raised"
+          className="flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-control bg-sheet text-sm font-medium text-text hover:bg-raised"
           data-testid="new-chat"
         >
           <span aria-hidden className="text-base leading-none">+</span> New chat
@@ -148,7 +148,7 @@ export function HistorySidebar({ onNavigate }: { onNavigate?: () => void }) {
                       setDeleteError(null);
                       setPendingDelete(c);
                     }}
-                    className="absolute top-2 right-1.5 grid size-7 place-items-center rounded-md text-faint opacity-100 hover:bg-white hover:text-red-ink focus-visible:opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
+                    className="absolute top-2 right-1.5 grid size-7 place-items-center rounded-md text-faint opacity-100 hover:bg-sheet hover:text-red-ink focus-visible:opacity-100 lg:opacity-0 lg:group-hover:opacity-100"
                   >
                     <svg viewBox="0 0 16 16" className="size-3.5" aria-hidden fill="none" stroke="currentColor" strokeWidth="1.5">
                       <path d="M3 4.5h10M6.5 4.5V3h3v1.5M5 4.5l.6 8.5h4.8l.6-8.5" strokeLinecap="round" strokeLinejoin="round" />

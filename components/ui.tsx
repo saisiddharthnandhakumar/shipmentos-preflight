@@ -19,10 +19,10 @@ export function Button({
       className={cx(
         "inline-flex flex-none items-center justify-center gap-1.5 rounded-lg font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-55",
         size === "sm" ? "h-8 px-3 text-[13px]" : "h-9 px-3.5 text-sm",
-        variant === "primary" && "bg-primary text-white hover:bg-primary-hover",
-        variant === "secondary" && "border border-control bg-white text-text hover:bg-raised",
+        variant === "primary" && "bg-primary text-on-primary hover:bg-primary-hover",
+        variant === "secondary" && "border border-control bg-sheet text-text hover:bg-raised",
         variant === "ghost" && "text-muted hover:bg-active hover:text-text",
-        variant === "danger" && "border border-red-line bg-white text-red-ink hover:bg-red-bg",
+        variant === "danger" && "border border-red-line bg-sheet text-red-ink hover:bg-red-bg",
         className,
       )}
     />
@@ -99,7 +99,7 @@ export function Skeleton({ className }: { className?: string }) {
 export function Card({ title, action, children, className, id }: { title?: ReactNode; action?: ReactNode; children: ReactNode; className?: string; id?: string }) {
   const hid = useId();
   return (
-    <section aria-labelledby={title ? hid : undefined} id={id} className={cx("rounded-xl border border-border bg-white", className)}>
+    <section aria-labelledby={title ? hid : undefined} id={id} className={cx("rounded-xl border border-border bg-sheet", className)}>
       {title && (
         <header className="flex min-h-11 items-center justify-between gap-3 px-4 pt-3">
           <h3 id={hid} className="text-[13px] font-semibold text-text">
@@ -148,7 +148,7 @@ export function ConfirmDialog({
         if (!busy) onCancel();
       }}
       aria-labelledby="confirm-title"
-      className="m-auto w-[min(440px,calc(100vw-32px))] rounded-2xl border border-border bg-white p-0 text-text shadow-[0_12px_40px_rgba(28,27,41,0.18)]"
+      className="m-auto w-[min(440px,calc(100vw-32px))] rounded-2xl border border-border bg-sheet p-0 text-text shadow-[0_12px_40px_rgba(0,0,0,0.22)]"
     >
       <div className="p-5">
         <h2 id="confirm-title" className="text-base font-semibold">
@@ -189,7 +189,7 @@ export function Drawer({ open, onClose, label, children, side = "right" }: { ope
         if (e.target === ref.current) onClose();
       }}
       className={cx(
-        "fixed inset-y-0 m-0 h-dvh max-h-dvh border-border bg-white p-0 text-text",
+        "fixed inset-y-0 m-0 h-dvh max-h-dvh border-border bg-sheet p-0 text-text",
         side === "right" ? "right-0 left-auto w-[min(720px,100vw)] border-l" : "left-0 w-[min(300px,88vw)] border-r",
       )}
     >

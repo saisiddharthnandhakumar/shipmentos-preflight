@@ -179,7 +179,7 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
       <div className="m-auto max-w-md p-6 text-center" data-testid="chat-not-found">
         <h1 className="text-lg font-semibold">Conversation not found</h1>
         <p className="mt-2 text-sm text-muted">It may have been deleted, or it belongs to a different browser session. Chats are only available in the browser that created them.</p>
-        <Link href="/chat" className="mt-4 inline-flex h-9 items-center rounded-lg bg-primary px-3.5 text-sm font-medium text-white">
+        <Link href="/chat" className="mt-4 inline-flex h-9 items-center rounded-lg bg-primary px-3.5 text-sm font-medium text-on-primary">
           Start a new chat
         </Link>
       </div>
@@ -227,7 +227,7 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
                   </p>
                   <div className="mt-5 space-y-2">
                     {EXAMPLES.map((ex) => (
-                      <button key={ex} type="button" onClick={() => setText(ex)} className="block w-full rounded-lg border border-border bg-white px-3 py-2.5 text-left text-[13px] text-text hover:bg-raised">
+                      <button key={ex} type="button" onClick={() => setText(ex)} className="block w-full rounded-lg border border-border bg-sheet px-3 py-2.5 text-left text-[13px] text-text hover:bg-raised">
                         {ex}
                       </button>
                     ))}
@@ -286,7 +286,7 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
             </div>
           </div>
           <form
-            className="flex-none border-t border-border bg-white px-4 py-3"
+            className="flex-none border-t border-border bg-sheet px-4 py-3"
             onSubmit={(e) => {
               e.preventDefault();
               void send(text);
@@ -311,7 +311,7 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
                 }}
                 rows={1}
                 placeholder={evaluation?.status === "Draft" || !evaluation ? "Describe your shipment…" : "Change anything, e.g. “add one more pallet”…"}
-                className="max-h-40 min-h-11 flex-1 resize-none rounded-xl border border-control bg-white px-3.5 py-2.5 text-[14px] leading-6 placeholder:text-faint"
+                className="max-h-40 min-h-11 flex-1 resize-none rounded-xl border border-control bg-sheet px-3.5 py-2.5 text-[14px] leading-6 placeholder:text-faint"
                 disabled={loadState === "loading" || loadState === "error" || !history.sessionReady}
                 data-testid="composer"
               />

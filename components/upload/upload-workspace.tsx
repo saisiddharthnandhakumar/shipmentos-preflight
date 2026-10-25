@@ -226,7 +226,7 @@ export function UploadResults({ batchId }: { batchId: string }) {
               {topRules.length ? ` Most common: ${topRules.slice(0, 3).map(([r, n]) => `${r} (${n})`).join(", ")}.` : " No rule failures."}
             </p>
           </div>
-          <Link href="/upload" className="inline-flex h-9 flex-none items-center rounded-lg border border-control bg-white px-3.5 text-sm font-medium hover:bg-raised">
+          <Link href="/upload" className="inline-flex h-9 flex-none items-center rounded-lg border border-control bg-sheet px-3.5 text-sm font-medium hover:bg-raised">
             Upload another
           </Link>
         </div>
@@ -240,7 +240,7 @@ export function UploadResults({ batchId }: { batchId: string }) {
               onClick={() => setFilter(c.key)}
               className={cx(
                 "rounded-lg border px-3 py-2.5 text-left",
-                filter === c.key ? "border-accent bg-accent-soft" : "border-border bg-white hover:bg-raised",
+                filter === c.key ? "border-accent bg-accent-soft" : "border-border bg-sheet hover:bg-raised",
                 c.key === "issues" && counts.length % 2 === 1 && "col-span-2 sm:col-span-1",
               )}
             >
@@ -280,7 +280,7 @@ export function UploadResults({ batchId }: { batchId: string }) {
               autoComplete="off"
               spellCheck={false}
               placeholder="Search ID, seller, country, status…"
-              className="h-9 w-full rounded-lg border border-control bg-white px-3 text-[13px] placeholder:text-faint"
+              className="h-9 w-full rounded-lg border border-control bg-sheet px-3 text-[13px] placeholder:text-faint"
               data-testid="upload-search"
             />
           </label>

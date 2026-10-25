@@ -90,7 +90,7 @@ export function EditBookingDialog({ open, draft, onClose, onSubmit, busy, error 
     return ops;
   }
 
-  const input = "h-9 w-full rounded-lg border border-control bg-white px-2.5 text-[13px]";
+  const input = "h-9 w-full rounded-lg border border-control bg-sheet px-2.5 text-[13px]";
   const field = (key: string, label: string, el?: React.ReactNode) => (
     <label className="block">
       <span className="mb-1 block text-[12px] font-medium text-muted">{label}</span>
@@ -115,7 +115,7 @@ export function EditBookingDialog({ open, draft, onClose, onSubmit, busy, error 
         e.preventDefault();
         if (!busy) onClose();
       }}
-      className="m-auto max-h-[92dvh] w-[min(860px,calc(100vw-24px))] rounded-2xl border border-border bg-white p-0 text-text shadow-[0_12px_40px_rgba(28,27,41,0.18)]"
+      className="m-auto max-h-[92dvh] w-[min(860px,calc(100vw-24px))] rounded-2xl border border-border bg-sheet p-0 text-text shadow-[0_12px_40px_rgba(0,0,0,0.22)]"
     >
       <form
         onSubmit={(e) => {

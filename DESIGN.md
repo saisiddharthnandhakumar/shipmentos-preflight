@@ -3,6 +3,15 @@
 Based on the Mercury DESIGN.md reference (design language only — no brand assets), adapted for an
 operations web app. The full reference follows below the ShipmentOS adaptation notes.
 
+## Palette and theme (current, supersedes the Mercury colour notes below)
+
+Mercury's indigo/violet was replaced: a harbour-slate ink (#14262e) with North Sea blue (#1d6a8c) as the only
+accent, on warm concrete neutrals (frame #e9ece7, sheet #fbfbf8). Type is Public Sans (transport-signage
+heritage) with IBM Plex Mono for IDs. All colours are CSS tokens in `app/globals.css`; a dark set lives under
+`:root[data-theme="dark"]` (frame #0c1215, sheet #141b1f, accent #6cb8d6). The theme is set before paint by an
+inline script in `app/layout.tsx` (stored in localStorage `shipmentos.theme`, falls back to the OS setting) and
+switched by `components/shell/theme-toggle.tsx` in the top bar. Never hardcode colours in components; use tokens.
+
 ## ShipmentOS adaptations
 
 Reconciled with the `design-taste-frontend` app-screen rules (style `framed-sheet`, seed 841835741):

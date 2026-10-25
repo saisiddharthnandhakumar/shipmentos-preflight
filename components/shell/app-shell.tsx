@@ -6,6 +6,7 @@ import { useState, useSyncExternalStore, type ReactNode } from "react";
 import { Button, Drawer, Notice, cx } from "../ui";
 import { HistoryProvider, useHistory } from "./history-context";
 import { HistorySidebar, LogoMark } from "./history-sidebar";
+import { ThemeToggle } from "./theme-toggle";
 
 const MODES = [
   { href: "/chat", label: "Chat to book", match: (p: string) => p === "/" || p.startsWith("/chat") },
@@ -56,7 +57,7 @@ function Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-dvh min-h-0 bg-frame">
-      <a href="#main" className="sr-only z-50 rounded-lg bg-white px-3 py-2 text-sm font-medium focus:not-sr-only focus:fixed focus:top-2 focus:left-2">
+      <a href="#main" className="sr-only z-50 rounded-lg bg-sheet px-3 py-2 text-sm font-medium focus:not-sr-only focus:fixed focus:top-2 focus:left-2">
         Skip to main content
       </a>
       {/* Desktop rail: part of the tinted L-frame */}
@@ -123,6 +124,9 @@ function Shell({ children }: { children: ReactNode }) {
             })}
           </nav>
           <p className="ml-auto hidden pr-2 text-xs text-faint xl:block">Booking preparation demo · no carrier is contacted</p>
+          <div className="ml-auto flex flex-none items-center xl:ml-0">
+            <ThemeToggle />
+          </div>
         </header>
 
         <main id="main" tabIndex={-1} className="min-h-0 flex-1 outline-none lg:pr-2 lg:pb-2">

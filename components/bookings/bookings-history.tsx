@@ -94,7 +94,7 @@ export function BookingsHistory() {
                 type="button"
                 aria-pressed={source === s}
                 onClick={() => setSource(s)}
-                className={cx("h-8 rounded-md px-3 text-[13px] font-medium", source === s ? "border border-border bg-white text-text" : "border border-transparent text-muted hover:text-text")}
+                className={cx("h-8 rounded-md px-3 text-[13px] font-medium", source === s ? "border border-border bg-sheet text-text" : "border border-transparent text-muted hover:text-text")}
                 data-testid={`source-${s}`}
               >
                 {s === "all" ? "All" : s === "chat" ? "Chats" : "Excel imports"}
@@ -103,7 +103,7 @@ export function BookingsHistory() {
           </div>
           <label className="text-[13px] text-muted">
             <span className="sr-only">Status</span>
-            <select name="status" value={status} onChange={(e) => setStatus(e.target.value)} className="h-9 rounded-lg border border-control bg-white px-2.5 text-[13px] text-text">
+            <select name="status" value={status} onChange={(e) => setStatus(e.target.value)} className="h-9 rounded-lg border border-control bg-sheet px-2.5 text-[13px] text-text">
               <option value="">Any status</option>
               {STATUSES.map((s) => (
                 <option key={s}>{s}</option>
@@ -112,7 +112,7 @@ export function BookingsHistory() {
           </label>
           <label className="ml-auto block w-full sm:w-72">
             <span className="sr-only">Search bookings</span>
-            <input name="q" type="search" autoComplete="off" spellCheck={false} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search route, seller or booking ID…" className="h-9 w-full rounded-lg border border-control bg-white px-3 text-[13px] placeholder:text-faint" />
+            <input name="q" type="search" autoComplete="off" spellCheck={false} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search route, seller or booking ID…" className="h-9 w-full rounded-lg border border-control bg-sheet px-3 text-[13px] placeholder:text-faint" />
           </label>
         </div>
 
