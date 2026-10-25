@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api, ApiClientError } from "@/lib/client/api";
 import type { BookingListItem, BookingSnapshot } from "@/lib/client/types";
+import { useHistory } from "../shell/history-context";
 import { Button, EmptyState, Notice, PageHeader, SectionHeading, Skeleton, Stat, StatusPill, relativeTime } from "../ui";
 
 const STATUSES = ["Blocked", "Needs attention", "Ready to submit", "Draft"] as const;
@@ -21,6 +22,7 @@ async function loadBuckets(): Promise<Buckets> {
 const countLabel = (b: Bucket) => `${b.items.length}${b.more ? "+" : ""}`;
 
 export function TodayScreen() {
+  const history = useHistory();
   const [data, setData] = useState<Buckets | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
@@ -34,6 +36,21 @@ export function TodayScreen() {
       alive = false;
     };
   }, [reload]);
+
+  const [seeding, setSeeding] = useState(false);
+  async function loadSample() {
+    setSeeding(true);
+    try {
+      await api("/api/sample", { method: "POST" });
+      void history.refreshChats();
+      setData(null);
+      setReload((n) => n + 1);
+    } catch (e) {
+      setError(e instanceof ApiClientError ? e.message : "Couldn't load the sample data.");
+    } finally {
+      setSeeding(false);
+    }
+  }
 
   const total = data ? STATUSES.reduce((n, s) => n + data[s].items.length, 0) : 0;
   const attention = data ? [...data.Blocked.items, ...data["Needs attention"].items].sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt)) : [];
@@ -81,6 +98,9 @@ export function TodayScreen() {
                 <Link href="/upload" className="inline-flex h-9 items-center rounded-lg border border-control bg-sheet px-3.5 text-sm font-medium text-text hover:bg-raised">
                   Upload a spreadsheet
                 </Link>
+                <Button variant="ghost" onClick={() => void loadSample()} disabled={seeding}>
+                  {seeding ? "Loading…" : "Load sample data"}
+                </Button>
               </>
             }
           >
@@ -133,7 +153,10 @@ export function TodayScreen() {
         )}
         {data && total > 0 && (
           <p className="text-caption text-muted">
-            Bookings are kept in this browser for 7 days. <Button variant="ghost" size="sm" className="!h-auto !px-1 underline" onClick={() => setReload((n) => n + 1)}>Refresh</Button>
+            Bookings are kept in this browser for 7 days.{" "}
+            <button type="button" className="underline underline-offset-2 hover:text-text" onClick={() => void loadSample()} disabled={seeding}>
+              {seeding ? "Loading sample data…" : "Load sample data"}
+            </button>
           </p>
         )}
       </div>
