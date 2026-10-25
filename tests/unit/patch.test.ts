@@ -151,3 +151,14 @@ describe("Gemini output validation", () => {
     expect(ChatPatchSchema.safeParse("not json").success).toBe(false);
   });
 });
+
+describe("country + city in one message", () => {
+  it("reports one net city change and no stale 'which city' prompt", () => {
+    const r = applyPatch(bk001(), [
+      { op: "set", field: "destinationCountry", value: "France" },
+      { op: "set", field: "destinationCity", value: "Paris" },
+    ], { todayUK: TODAY, newId: uuid });
+    expect(r.warnings).toEqual([]);
+    expect(r.changes.map((c) => `${c.label} ${c.before}→${c.after}`)).toEqual(["country Germany→France", "to Frankfurt→Paris"]);
+  });
+});

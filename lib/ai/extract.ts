@@ -1,5 +1,5 @@
 import "server-only";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { ChatPatchSchema, type ChatPatch, type DraftBooking } from "../domain/schemas";
 import { fakeExtractor as fakeExtractorRef } from "./fake-extractor";
 
@@ -21,7 +21,8 @@ export class ExtractionError extends Error {
   }
 }
 
-export const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
+/** Verified 2026-10-25: gemini-2.5-flash is closed to new API users; 3.5 Flash was fastest and most accurate on the demo turns (scripts/eval-extractor.ts). */
+export const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash";
 
 const SYSTEM = `You convert ONE message from a UK seller into JSON patch operations for a shipment booking draft.
 The app (not you) validates values, does all arithmetic, runs compliance rules, picks carriers and asks follow-up questions.
@@ -51,6 +52,7 @@ Rules:
 5. Use existing itemId (preferred) or SKU from the current draft to target items. If the draft has one item and the seller talks about "the mugs", target that item.
    Use addItem only for a genuinely new product. Put quantities/prices/weights given per product on that item.
 6. If the seller says they have no HS code / don't know the country of origin and want to continue, set hsCode "" / countryOfOrigin "" on that item.
+7a. For a new destination, set destinationCity (its country is derived); set destinationCountry only when no city is named.
 7. "warehouse", "fulfilment centre", "Amazon FC" → destinationType "Warehouse"; "shop", "office", "store" → "Business address".
 8. "cheap"/"lowest cost" → Cheapest, "fast"/"urgent" → Fastest, "reliable"/"on time" → Most reliable, "no preference"/"balance" → Balanced.
 9. Delivery appointment: "I've booked the slot/appointment" → true; "not yet"/"no appointment" → false.
@@ -137,6 +139,12 @@ function compactDraft(d: DraftBooking) {
 }
 
 let client: GoogleGenAI | null = null;
+const minimalUnsupported = new Set<string>();
+
+/** MINIMAL where the model accepts it (fastest); models that reject it fall back to LOW. */
+function thinkingLevelFor(model: string): ThinkingLevel {
+  return minimalUnsupported.has(model) ? ThinkingLevel.LOW : ThinkingLevel.MINIMAL;
+}
 
 export const geminiExtractor: Extractor = async (input) => {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -162,13 +170,23 @@ export const geminiExtractor: Extractor = async (input) => {
           responseMimeType: "application/json",
           responseJsonSchema: RESPONSE_SCHEMA,
           temperature: 0,
-          ...(model.startsWith("gemini-2.5") ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+          // Extraction is a short structured task: keep model thinking minimal for latency.
+          ...(model.startsWith("gemini-2.5")
+            ? { thinkingConfig: { thinkingBudget: 0 } }
+            : /^gemini-3/.test(model)
+              ? { thinkingConfig: { thinkingLevel: thinkingLevelFor(model) } }
+              : {}),
           abortSignal: AbortSignal.timeout(20_000),
         },
       });
       text = res.text;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      if (/Thinking level MINIMAL is not supported/i.test(msg) && !minimalUnsupported.has(model)) {
+        minimalUnsupported.add(model);
+        attempt--; // config retry, not a repair attempt
+        continue;
+      }
       if (/abort|timeout/i.test(msg)) throw new ExtractionError("The AI assistant took too long to respond. Please retry.", "timeout");
       console.error("Gemini call failed:", msg.slice(0, 200).replace(/key=[^&\s]+/g, "key=***"));
       throw new ExtractionError("The AI assistant is unavailable right now. Retry, or use the Edit booking form.", "unavailable");

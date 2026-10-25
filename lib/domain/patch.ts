@@ -28,7 +28,8 @@ import {
   type PatchOp,
 } from "./schemas";
 
-export type Change = { field: string; label: string; before: string; after: string; itemId?: string };
+/** `quiet` changes are recorded but not repeated in the reply (fields of a line that was just added). */
+export type Change = { field: string; label: string; before: string; after: string; itemId?: string; quiet?: boolean };
 export type PatchResult = { draft: DraftBooking; changes: Change[]; warnings: string[] };
 export type PatchContext = { todayUK: string; newId: () => string };
 
@@ -179,6 +180,8 @@ function normalizeItemValue(field: ItemField, v: unknown): Ok<DraftItem[ItemFiel
   }
 }
 
+const CITY_CLEARED = "\u0000city-cleared:";
+
 export function applyPatch(prev: DraftBooking, ops: PatchOp[], ctx: PatchContext): PatchResult {
   const draft: DraftBooking = structuredClone(prev);
   const changes: Change[] = [];
@@ -240,7 +243,7 @@ export function applyPatch(prev: DraftBooking, ops: PatchOp[], ctx: PatchContext
   const setDestinationCountry = (country: DestinationCountry) => {
     setBooking("destinationCountry", country);
     if (draft.destinationCity && !DESTINATION_CITIES[country].includes(draft.destinationCity)) {
-      warnings.push(`${draft.destinationCity} isn't in ${country}, so I've cleared the city. Which city in ${country}: ${DESTINATION_CITIES[country].join(", ")}?`);
+      warnings.push(`${CITY_CLEARED}${draft.destinationCity} isn't in ${country}, so I've cleared the city. Which city in ${country}: ${DESTINATION_CITIES[country].join(", ")}?`);
       setBooking("destinationCity", null);
     }
     if (draft.selectedCarrierKey && !CARRIER_OPTIONS.some((o) => o.key === draft.selectedCarrierKey && o.destinationCountry === country)) {
@@ -383,8 +386,11 @@ export function applyPatch(prev: DraftBooking, ops: PatchOp[], ctx: PatchContext
         }
         const item = emptyItem(ctx.newId());
         draft.items.push(item);
-        changes.push({ field: "items", itemId: item.itemId, label: "new item", before: "—", after: `${op.item.sku ?? op.item.description ?? "product line"}` });
+        const name = [op.item.sku, op.item.description].filter(Boolean).join(" ") || "product line";
+        changes.push({ field: "items", itemId: item.itemId, label: "new item", before: "—", after: name });
+        const mark = changes.length;
         applyItemChanges(item, op.item);
+        for (const c of changes.slice(mark)) if (c.field === "item.sku" || c.field === "item.description") c.quiet = true;
         break;
       }
       case "updateItem": {
@@ -415,10 +421,25 @@ export function applyPatch(prev: DraftBooking, ops: PatchOp[], ctx: PatchContext
     }
   }
 
+  // "France instead, Paris" arrives as two ops: report one net change per field, and drop the
+  // "which city?" prompt if a valid city was set in the same message.
+  const merged: Change[] = [];
+  for (const c of changes) {
+    const prev = merged.find((m) => m.field === c.field && m.itemId === c.itemId && c.field !== "items");
+    if (prev) {
+      prev.after = c.after;
+      prev.quiet = prev.quiet && c.quiet;
+    } else merged.push({ ...c });
+  }
+  const netChanges = merged.filter((c) => c.field === "items" || c.before !== c.after);
+  const finalWarnings = warnings
+    .filter((w) => !(w.startsWith(CITY_CLEARED) && draft.destinationCity))
+    .map((w) => w.replace(CITY_CLEARED, ""));
+
   // Final structural guard: the merged draft must still satisfy the canonical schema.
   const parsed = DraftBookingSchema.safeParse(draft);
   if (!parsed.success) {
-    return { draft: prev, changes: [], warnings: [...warnings, "That change produced an invalid booking, so nothing was changed."] };
+    return { draft: prev, changes: [], warnings: [...finalWarnings, "That change produced an invalid booking, so nothing was changed."] };
   }
-  return { draft: parsed.data, changes, warnings };
+  return { draft: parsed.data, changes: netChanges, warnings: finalWarnings };
 }

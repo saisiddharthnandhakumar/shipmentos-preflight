@@ -92,6 +92,7 @@ export type ReplyInput = {
   warnings: string[];
   clarification?: string | null;
   question?: string | null;
+  operationCount?: number;
 };
 
 export function composeReply(r: ReplyInput): string {
@@ -100,11 +101,12 @@ export function composeReply(r: ReplyInput): string {
 
   if (r.question) parts.push(r.question);
 
-  if (changes.length) {
-    const shown = changes.slice(0, 10).map((c) => (c.before === "—" ? `${c.label}: ${c.after}` : `${c.label} ${c.before} → ${c.after}`));
-    parts.push(`Got it — ${shown.join("; ")}${changes.length > 10 ? ` (+${changes.length - 10} more)` : ""}.`);
+  const visible = changes.filter((c) => !c.quiet);
+  if (visible.length) {
+    const shown = visible.slice(0, 10).map((c) => (c.before === "—" ? `${c.label}: ${c.after}` : `${c.label} ${c.before} → ${c.after}`));
+    parts.push(`Got it — ${shown.join("; ")}${visible.length > 10 ? ` (+${visible.length - 10} more)` : ""}.`);
   } else if (!r.question && !r.clarification && !warnings.length) {
-    parts.push("I didn't find any shipment details to change in that message.");
+    parts.push(r.operationCount ? "That's already in the booking — nothing changed." : "I didn't find any shipment details to change in that message.");
   }
   if (b.readyDateNote === "year_assumed" && changes.some((c) => c.field === "readyToShipDate") && b.readyToShipDate)
     parts.push(`I've taken the ready date as ${formatLong(b.readyToShipDate)} (${formatUK(b.readyToShipDate)}) — tell me if you meant a different year.`);

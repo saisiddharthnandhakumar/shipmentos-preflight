@@ -1,9 +1,7 @@
 import { emptyDraft, type DraftBooking, type DraftItem } from "@/lib/domain/schemas";
 
-let n = 0;
 export function uuid(): string {
-  n += 1;
-  return `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
+  return crypto.randomUUID();
 }
 
 export function item(over: Partial<DraftItem> = {}): DraftItem {

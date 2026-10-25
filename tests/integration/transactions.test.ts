@@ -123,6 +123,19 @@ describe("atomic, version-guarded booking writes", () => {
   });
 });
 
+describe("item ownership", () => {
+  it("an item id from another booking can't be moved or overwritten (whole turn rolls back)", async () => {
+    const a = await setup();
+    const withItem = { ...a.draft, items: [{ itemId: randomUUID(), sku: "A-1", description: "Plates", hsCode: "691200", quantityUnits: 1, unitPriceGBP: 1, unitsPerCarton: 1, cartons: 1, unitWeightKg: 1, countryOfOrigin: "China" }] };
+    await commitBookingChange(a.db, { ...change(a, 0, "own", 3), after: withItem, evaluation: ev(withItem) });
+    const b = await setup();
+    const hijack = { ...b.draft, items: [{ ...withItem.items[0], sku: "STOLEN" }] };
+    await expect(commitBookingChange(b.db, { ...change(b, 0, "steal", 3), after: hijack, evaluation: ev(hijack) })).rejects.toThrow(/collision/);
+    expect((await loadBooking(a.db, a.sessionId, a.bookingId))!.draft.items[0].sku).toBe("A-1");
+    expect((await loadBooking(b.db, b.sessionId, b.bookingId))!.row.revision).toBe(0);
+  });
+});
+
 describe("session ownership", () => {
   it("another session cannot load, list, page messages of, or delete a booking it doesn't own", async () => {
     const a = await setup();

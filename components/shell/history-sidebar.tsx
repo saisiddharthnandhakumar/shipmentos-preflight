@@ -81,7 +81,12 @@ export function HistorySidebar({ onNavigate }: { onNavigate?: () => void }) {
       <div className="px-3 pt-1 pb-3">
         <Link
           href="/chat"
-          onClick={onNavigate}
+          onClick={(e) => {
+            // Always a fresh, independent chat — even if the current URL was updated in place.
+            e.preventDefault();
+            onNavigate?.();
+            router.push(`/chat?new=${Date.now().toString(36)}`);
+          }}
           className="flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-control bg-white text-sm font-medium text-text hover:bg-raised"
           data-testid="new-chat"
         >

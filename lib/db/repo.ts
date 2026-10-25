@@ -419,16 +419,30 @@ export async function commitBookingChange(db: Db, input: CommitInput): Promise<C
     await tx
       .delete(bookingItems)
       .where(and(eq(bookingItems.bookingId, input.bookingId), keepIds.length ? sql`${bookingItems.id} not in (${sql.join(keepIds.map((id) => sql`${id}::uuid`), sql`, `)})` : undefined));
-    for (const [pos, item] of input.after.items.entries()) {
-      const v = itemValues(input.bookingId, item, pos);
-      const { id: _id, bookingId: _b, rawRow: _r, ...updatable } = v;
-      void _id; void _b; void _r;
+    if (input.after.items.length) {
+      // One multi-row upsert; the WHERE keeps an id from ever moving between bookings.
       const res = await tx
         .insert(bookingItems)
-        .values(v)
-        .onConflictDoUpdate({ target: bookingItems.id, set: { ...updatable, updatedAt: now }, setWhere: eq(bookingItems.bookingId, input.bookingId) })
+        .values(input.after.items.map((item, pos) => itemValues(input.bookingId, item, pos)))
+        .onConflictDoUpdate({
+          target: bookingItems.id,
+          set: {
+            position: sql`excluded.position`,
+            sku: sql`excluded.sku`,
+            description: sql`excluded.description`,
+            hsCode: sql`excluded.hs_code`,
+            quantityUnits: sql`excluded.quantity_units`,
+            unitPriceGbp: sql`excluded.unit_price_gbp`,
+            unitsPerCarton: sql`excluded.units_per_carton`,
+            cartons: sql`excluded.cartons`,
+            unitWeightKg: sql`excluded.unit_weight_kg`,
+            countryOfOrigin: sql`excluded.country_of_origin`,
+            updatedAt: now,
+          },
+          setWhere: eq(bookingItems.bookingId, input.bookingId),
+        })
         .returning({ id: bookingItems.id });
-      if (!res.length) throw new Error("Item id collision");
+      if (res.length !== input.after.items.length) throw new Error("Item id collision");
     }
 
     let stored: StoredMessage[] = [];

@@ -74,7 +74,7 @@ export async function runTurn(input: TurnInput): Promise<TurnResponse> {
 
   let messages: { role: "user" | "assistant" | "event"; content: string; meta?: unknown }[];
   if (input.kind === "chat") {
-    const reply = composeReply({ draft: after, evaluation, previous, changes, warnings, clarification: patch.clarification, question: patch.question });
+    const reply = composeReply({ draft: after, evaluation, previous, changes, warnings, clarification: patch.clarification, question: patch.question, operationCount: patch.operations.length });
     messages = [
       { role: "user", content: input.message },
       { role: "assistant", content: reply, meta: { status: evaluation.status, changes: changes.length } },
