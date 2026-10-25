@@ -19,9 +19,10 @@ describe("question planning", () => {
     const e = evaluateBooking(draft, { todayUK: TODAY });
     const next = nextQuestionFields(e.missingFields);
     expect(next.length).toBeLessThanOrEqual(3);
-    expect(next.map((f) => f.key)).toEqual(["sellerName"]);
+    expect(next.map((f) => f.key)[0]).toBe("sellerName");
+    expect(next.length).toBeGreaterThanOrEqual(2);
     const q = questionFor(next, draft);
-    expect(q).toBe("What business is sending this?");
+    expect(q).toMatch(/^What business is sending this\? For Ceramic coffee mugs, what.s the SKU/);
     expect(q).not.toMatch(/pallet/i);
   });
 
@@ -57,7 +58,7 @@ describe("question planning", () => {
     const r = applyPatch(before, [{ op: "increment", field: "pallets", by: 1 }], { todayUK: TODAY, newId: uuid });
     const e = evaluateBooking(r.draft, { todayUK: TODAY });
     const text = composeReply({ draft: r.draft, evaluation: e, previous: prev, changes: r.changes, warnings: r.warnings });
-    expect(text).toMatch(/number of pallets 3 → 4/);
+    expect(text).toMatch(/pallets 3 → 4/);
     expect(text).toMatch(/4 × £180 = £720/);
     expect(text).toMatch(/155 kg per pallet/);
     expect(text).toMatch(/was Carrier A Road economy £540/);

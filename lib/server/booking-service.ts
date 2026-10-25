@@ -1,11 +1,11 @@
 import { todayUK } from "../domain/dates";
 import { evaluateBooking } from "../domain/evaluate";
 import type { DraftBooking, Evaluation, InputIssue } from "../domain/schemas";
-import type { Db } from "../db/client";
+import type { Exec } from "../db/repo";
 import { issuesForBooking, listRevisions, loadBooking } from "../db/repo";
 import { getCarrierOptions } from "./reference";
 
-export async function evaluateDraft(db: Db, draft: DraftBooking, inputIssues: InputIssue[] = [], now = new Date()): Promise<Evaluation> {
+export async function evaluateDraft(db: Exec, draft: DraftBooking, inputIssues: InputIssue[] = [], now = new Date()): Promise<Evaluation> {
   const options = await getCarrierOptions(db);
   return evaluateBooking(draft, { todayUK: todayUK(now), options, inputIssues });
 }
@@ -36,7 +36,7 @@ export type BookingSnapshot = {
  * draft (deterministic, cheap) so date-dependent checks like R-10 are always current; the stored
  * per-revision snapshot remains the audit record.
  */
-export async function bookingSnapshot(db: Db, sessionId: string, bookingId: string): Promise<BookingSnapshot | null> {
+export async function bookingSnapshot(db: Exec, sessionId: string, bookingId: string): Promise<BookingSnapshot | null> {
   const loaded = await loadBooking(db, sessionId, bookingId);
   if (!loaded) return null;
   const { row, draft } = loaded;

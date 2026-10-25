@@ -21,7 +21,7 @@ export type BookingRow = typeof bookings.$inferSelect;
 export type ItemRow = typeof bookingItems.$inferSelect;
 export type MessageRow = typeof chatMessages.$inferSelect;
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
-type Exec = Db | Tx;
+export type Exec = Db | Tx;
 
 export class ConflictError extends Error {
   constructor(public currentRevision: number | null, message = "This booking was changed elsewhere. Reload to see the latest version.") {
@@ -347,7 +347,7 @@ export type CommitInput = {
   messages: { role: "user" | "assistant" | "event"; content: string; meta?: unknown }[];
   confirm?: boolean;
   /** Builds the JSON stored for idempotent replay and returned to the client. */
-  buildResponse: (revision: number, messages: StoredMessage[]) => unknown;
+  buildResponse: (revision: number, messages: StoredMessage[], tx: Exec) => unknown | Promise<unknown>;
   /** Test hook to simulate a failure mid-transaction. */
   failAfterUpdate?: boolean;
 };
@@ -451,7 +451,7 @@ export async function commitBookingChange(db: Db, input: CommitInput): Promise<C
     });
     await tx.insert(evaluations).values(evaluationValues(input.bookingId, revision, input.evaluation));
 
-    const response = input.buildResponse(revision, stored);
+    const response = await input.buildResponse(revision, stored, tx);
     await tx
       .update(chatTurnRequests)
       .set({ appliedRevision: revision, responseJson: response })
@@ -491,31 +491,39 @@ export async function persistImport(
       .values({ sessionId, originalFilenameSanitized: batch.filename, bookingRowCount: batch.bookingRowCount, itemRowCount: batch.itemRowCount, status: batch.status, summary: batch.summary })
       .returning({ id: importBatches.id, createdAt: importBatches.createdAt });
     const idByExternal = new Map<string, string>();
+    const bookingRows: (typeof bookings.$inferInsert)[] = [];
+    const itemRows: (typeof bookingItems.$inferInsert)[] = [];
+    const revisionRows: (typeof bookingRevisions.$inferInsert)[] = [];
+    const evaluationRows: (typeof evaluations.$inferInsert)[] = [];
     for (const r of records) {
-      const [row] = await tx
-        .insert(bookings)
-        .values({
-          sessionId,
-          importBatchId: b.id,
-          source: "excel",
-          ...draftColumns(r.draft, r.evaluation),
-          revision: 0,
-          sourceRow: r.sourceRow,
-          rawRow: r.rawRow,
-          createdAt: b.createdAt,
-          updatedAt: b.createdAt,
-          lastActivityAt: b.createdAt,
-        })
-        .returning({ id: bookings.id });
-      if (r.draft.externalBookingId && !idByExternal.has(r.draft.externalBookingId)) idByExternal.set(r.draft.externalBookingId, row.id);
-      if (r.draft.items.length)
-        await tx.insert(bookingItems).values(r.draft.items.map((it, pos) => itemValues(row.id, it, pos, r.itemRaw.get(it.itemId))));
-      await tx.insert(bookingRevisions).values({ bookingId: row.id, revision: 0, source: "import", changedFields: [], afterJson: r.draft });
-      await tx.insert(evaluations).values(evaluationValues(row.id, 0, r.evaluation));
+      // Ids generated here so the whole batch is written with a few multi-row INSERTs.
+      const id = crypto.randomUUID();
+      bookingRows.push({
+        id,
+        sessionId,
+        importBatchId: b.id,
+        source: "excel",
+        ...draftColumns(r.draft, r.evaluation),
+        revision: 0,
+        sourceRow: r.sourceRow,
+        rawRow: r.rawRow,
+        createdAt: b.createdAt,
+        updatedAt: b.createdAt,
+        lastActivityAt: b.createdAt,
+      });
+      if (r.draft.externalBookingId && !idByExternal.has(r.draft.externalBookingId)) idByExternal.set(r.draft.externalBookingId, id);
+      r.draft.items.forEach((it, pos) => itemRows.push(itemValues(id, it, pos, r.itemRaw.get(it.itemId))));
+      revisionRows.push({ bookingId: id, revision: 0, source: "import", changedFields: [], afterJson: r.draft });
+      evaluationRows.push(evaluationValues(id, 0, r.evaluation));
     }
-    if (issues.length) {
+    const chunks = <T,>(xs: T[], n: number) => Array.from({ length: Math.ceil(xs.length / n) }, (_, i) => xs.slice(i * n, i * n + n));
+    for (const c of chunks(bookingRows, 250)) await tx.insert(bookings).values(c);
+    for (const c of chunks(itemRows, 500)) await tx.insert(bookingItems).values(c);
+    for (const c of chunks(revisionRows, 200)) await tx.insert(bookingRevisions).values(c);
+    for (const c of chunks(evaluationRows, 100)) await tx.insert(evaluations).values(c);
+    for (const part of chunks(issues, 500)) {
       await tx.insert(importIssues).values(
-        issues.map((i) => ({
+        part.map((i) => ({
           batchId: b.id,
           bookingId: i.externalBookingId ? idByExternal.get(i.externalBookingId) ?? null : null,
           sheet: i.sheet ?? "Workbook",

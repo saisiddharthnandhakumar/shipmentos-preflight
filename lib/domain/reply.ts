@@ -48,17 +48,25 @@ function groupKey(m: MissingField): string {
 
 /** The next 1–3 related missing fields to ask about (same item for item fields). */
 export function nextQuestionFields(missing: MissingField[]): MissingField[] {
+  const out: MissingField[] = [];
   for (const g of GROUPS) {
-    const hits = missing.filter((m) => g.includes(groupKey(m)));
+    let hits = missing.filter((m) => g.includes(groupKey(m)));
     if (!hits.length) continue;
-    if (hits[0].itemId) return hits.filter((h) => h.itemId === hits[0].itemId).slice(0, 3);
-    return hits.slice(0, 3);
+    if (hits[0].itemId) hits = hits.filter((h) => h.itemId === hits[0].itemId);
+    // Combine a lone field with the next group so each reply asks 2–3 related things.
+    const room = 3 - out.length;
+    if (out.length && (out[0].itemId ? 1 : 0) !== (hits[0].itemId ? 1 : 0) && out.length >= 2) break;
+    out.push(...hits.slice(0, room));
+    if (out.length >= 2) break;
   }
-  return missing.slice(0, 3);
+  return out.length ? out : missing.slice(0, 3);
 }
 
 export function questionFor(fields: MissingField[], b: DraftBooking): string {
   if (!fields.length) return "";
+  const booking = fields.filter((f) => !f.itemId);
+  const item = fields.filter((f) => f.itemId);
+  if (booking.length && item.length) return `${questionFor(booking, b)} ${questionFor(item, b)}`;
   if (fields[0].itemId) {
     const item = b.items.find((i) => i.itemId === fields[0].itemId);
     const name = item?.sku ?? item?.description ?? "this item";
@@ -93,8 +101,8 @@ export function composeReply(r: ReplyInput): string {
   if (r.question) parts.push(r.question);
 
   if (changes.length) {
-    const shown = changes.slice(0, 8).map((c) => (c.before === "—" ? `${c.label}: ${c.after}` : `${c.label} ${c.before} → ${c.after}`));
-    parts.push(`Got it — ${shown.join("; ")}${changes.length > 8 ? ` (+${changes.length - 8} more)` : ""}.`);
+    const shown = changes.slice(0, 10).map((c) => (c.before === "—" ? `${c.label}: ${c.after}` : `${c.label} ${c.before} → ${c.after}`));
+    parts.push(`Got it — ${shown.join("; ")}${changes.length > 10 ? ` (+${changes.length - 10} more)` : ""}.`);
   } else if (!r.question && !r.clarification && !warnings.length) {
     parts.push("I didn't find any shipment details to change in that message.");
   }

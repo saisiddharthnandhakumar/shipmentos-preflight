@@ -1,26 +1,94 @@
 @import "tailwindcss";
 
+/* ShipmentOS tokens — see DESIGN.md (Mercury-derived, framed-sheet app style). */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --frame: #f3f5f7;
+  --sheet: #ffffff;
+  --raised: #f7f8fa;
+  --active: #e8ebf0;
+  --border: #e7e9ee;
+  --rule: #f0f1f4;
+  --control: #d6d8e0;
+  --ink: #28253b;
+  --text: #1c1b29;
+  --muted: #5d5a73;
+  --faint: #6b6880;
+  --accent: #5266eb;
+  --accent-soft: #eef0fd;
+  --primary: #28253b;
+  --primary-hover: #3a3652;
+  --on-primary: #ffffff;
+  --red-ink: #831c1e;   --red-bg: #ffedea;   --red-line: #f5c2bd;
+  --amber-ink: #92400e; --amber-bg: #fffbeb; --amber-line: #fde68a;
+  --pass-ink: #04250e;  --pass-bg: #dcfae5;  --pass-line: #a8e9bd;
+  --na-ink: #4b4f5c;    --na-bg: #f1f2f5;    --na-line: #dcdfe6;
+  --positive: #247b50;
+  --negative: #c4242a;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-frame: var(--frame);
+  --color-sheet: var(--sheet);
+  --color-raised: var(--raised);
+  --color-active: var(--active);
+  --color-border: var(--border);
+  --color-rule: var(--rule);
+  --color-control: var(--control);
+  --color-ink: var(--ink);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-red-ink: var(--red-ink);
+  --color-red-bg: var(--red-bg);
+  --color-red-line: var(--red-line);
+  --color-amber-ink: var(--amber-ink);
+  --color-amber-bg: var(--amber-bg);
+  --color-amber-line: var(--amber-line);
+  --color-pass-ink: var(--pass-ink);
+  --color-pass-bg: var(--pass-bg);
+  --color-pass-line: var(--pass-line);
+  --color-na-ink: var(--na-ink);
+  --color-na-bg: var(--na-bg);
+  --color-na-line: var(--na-line);
+  --color-positive: var(--positive);
+  --color-negative: var(--negative);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+html,
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--frame);
+  color: var(--text);
+}
+body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  -webkit-font-smoothing: antialiased;
+}
+.num {
+  font-variant-numeric: tabular-nums;
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+::selection {
+  background: var(--accent-soft);
+}
+dialog::backdrop {
+  background: rgb(28 27 41 / 0.36);
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

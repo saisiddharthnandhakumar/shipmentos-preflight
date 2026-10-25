@@ -49,3 +49,4 @@ Case2_*.xlsx
 /test-results/
 /blob-report/
 /.playwright-cli/
+/.taste-skill/

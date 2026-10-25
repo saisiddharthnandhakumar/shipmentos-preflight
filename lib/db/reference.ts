@@ -10,7 +10,7 @@ import {
 import { carrierOptions, ruleDefinitions } from "./schema";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyDb = NodePgDatabase<any>;
+type AnyDb = Pick<NodePgDatabase<any>, "select" | "insert" | "execute" | "transaction">;
 
 /** Idempotent upsert of the nine fixed carrier options and ten rule definitions. */
 export async function seedReference(db: AnyDb) {

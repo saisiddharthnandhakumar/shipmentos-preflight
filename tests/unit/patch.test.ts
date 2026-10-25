@@ -35,7 +35,7 @@ describe("chat patches", () => {
     const r = apply(before, [{ op: "increment", field: "pallets", by: 1 }]);
     expect(r.draft.pallets).toBe(4);
     expect({ ...r.draft, pallets: 3 }).toEqual(before);
-    expect(r.changes).toEqual([{ field: "pallets", label: "number of pallets", before: "3", after: "4" }]);
+    expect(r.changes).toEqual([{ field: "pallets", label: "pallets", before: "3", after: "4" }]);
   });
 
   it("increment without a known value asks instead of guessing", () => {

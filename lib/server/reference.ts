@@ -1,6 +1,6 @@
 import { carrierRowToOption, verifyReference } from "../db/reference";
 import { carrierOptions } from "../db/schema";
-import type { Db } from "../db/client";
+import type { Exec } from "../db/repo";
 import type { CarrierOption } from "../domain/reference";
 import { ApiError } from "./http";
 
@@ -11,7 +11,7 @@ const TTL_MS = 10 * 60 * 1000;
  * Loads the seeded rate card from Neon. Refuses to evaluate if the database copy diverges from the
  * checked-in, source-derived fixture (e.g. a manual edit), so judges always get the template rates.
  */
-export async function getCarrierOptions(db: Db): Promise<CarrierOption[]> {
+export async function getCarrierOptions(db: Exec): Promise<CarrierOption[]> {
   if (cache && Date.now() - cache.loadedAt < TTL_MS) return cache.options;
   const report = await verifyReference(db);
   if (!report.ok) {

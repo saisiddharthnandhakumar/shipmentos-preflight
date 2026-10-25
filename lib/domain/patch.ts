@@ -2,8 +2,9 @@
  * Applies typed patch operations to the previous canonical draft. The result is a NEW draft;
  * untouched fields are preserved exactly. All value normalisation happens here (not in the AI).
  */
-import { parseChatDate } from "./dates";
-import { ITEM_FIELD_LABELS, BOOKING_FIELD_LABELS } from "./missing";
+import { formatUK, parseChatDate } from "./dates";
+import { formatGBP, formatNumber } from "./decimal";
+import { BOOKING_FIELD_LABELS, ITEM_FIELD_LABELS } from "./missing";
 import {
   CARRIER_OPTIONS,
   DESTINATION_CITIES,
@@ -30,6 +31,27 @@ import {
 export type Change = { field: string; label: string; before: string; after: string; itemId?: string };
 export type PatchResult = { draft: DraftBooking; changes: Change[]; warnings: string[] };
 export type PatchContext = { todayUK: string; newId: () => string };
+
+/** Short labels for the change log and replies (questions use the longer BOOKING_FIELD_LABELS). */
+const CHANGE_LABEL: Record<string, string> = {
+  sellerName: "seller", originCity: "from", destinationCity: "to", destinationCountry: "country", destinationType: "destination type",
+  readyToShipDate: "ready date", sellerPriority: "priority", pallets: "pallets", cartons: "total cartons",
+  totalDeclaredValueGBP: "declared value", totalGrossWeightKg: "gross weight", deliveryAppointmentBooked: "delivery appointment",
+  selectedCarrierKey: "carrier", sku: "SKU", description: "description", hsCode: "HS code", quantityUnits: "quantity",
+  unitPriceGBP: "unit price", unitsPerCarton: "units per carton", unitWeightKg: "unit weight", countryOfOrigin: "country of origin",
+};
+
+function show(field: string, v: unknown): string {
+  if (v === null || v === undefined) return "—";
+  if (v === "") return "(blank)";
+  if (field === "readyToShipDate" && typeof v === "string") return formatUK(v);
+  if ((field === "totalDeclaredValueGBP" || field === "unitPriceGBP") && typeof v === "number") return formatGBP(v);
+  if ((field === "totalGrossWeightKg" || field === "unitWeightKg") && typeof v === "number") return `${formatNumber(v, 4)} kg`;
+  if (field === "deliveryAppointmentBooked" && typeof v === "boolean") return v ? "booked" : "not booked";
+  if (field === "selectedCarrierKey" && typeof v === "string") return CARRIER_OPTIONS.find((o) => o.key === v)?.carrier ?? v;
+  if (typeof v === "number") return formatNumber(v, 4);
+  return String(v);
+}
 
 const display = (v: unknown): string => {
   if (v === null || v === undefined) return "—";
@@ -166,19 +188,20 @@ export function applyPatch(prev: DraftBooking, ops: PatchOp[], ctx: PatchContext
     const before = draft[field];
     if (before === value) return;
     draft[field] = value;
-    changes.push({ field, label: BOOKING_FIELD_LABELS[field], before: display(before), after: display(value) });
+    changes.push({ field, label: CHANGE_LABEL[field] ?? BOOKING_FIELD_LABELS[field], before: show(field, before), after: show(field, value) });
   };
 
   const setItem = (item: DraftItem, field: ItemField, value: DraftItem[ItemField]) => {
     const before = item[field];
     if (before === value) return;
+    const name = field === "sku" ? (item.description ?? "item") : (item.sku ?? item.description ?? "item");
     (item as Record<ItemField, unknown>)[field] = value;
     changes.push({
       field: `item.${field}`,
       itemId: item.itemId,
-      label: `${ITEM_FIELD_LABELS[field]} (${item.sku ?? item.description ?? "item"})`,
-      before: display(before),
-      after: display(value),
+      label: `${name} ${field === "cartons" ? "cartons" : (CHANGE_LABEL[field] ?? ITEM_FIELD_LABELS[field])}`,
+      before: show(field, before),
+      after: show(field, value),
     });
   };
 
@@ -360,7 +383,7 @@ export function applyPatch(prev: DraftBooking, ops: PatchOp[], ctx: PatchContext
         }
         const item = emptyItem(ctx.newId());
         draft.items.push(item);
-        changes.push({ field: "items", itemId: item.itemId, label: "item line", before: "—", after: `added ${op.item.sku ?? op.item.description ?? "new item"}` });
+        changes.push({ field: "items", itemId: item.itemId, label: "new item", before: "—", after: `${op.item.sku ?? op.item.description ?? "product line"}` });
         applyItemChanges(item, op.item);
         break;
       }
@@ -386,7 +409,7 @@ export function applyPatch(prev: DraftBooking, ops: PatchOp[], ctx: PatchContext
         const item = findItem(op.target);
         if (!item) break;
         draft.items = draft.items.filter((i) => i.itemId !== item.itemId);
-        changes.push({ field: "items", itemId: item.itemId, label: "item line", before: item.sku ?? item.description ?? "item", after: "removed" });
+        changes.push({ field: "items", itemId: item.itemId, label: "removed item", before: "—", after: item.sku ?? item.description ?? "item" });
         break;
       }
     }
