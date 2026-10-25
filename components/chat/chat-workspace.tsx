@@ -7,7 +7,7 @@ import type { BookingSnapshot, MessagesResponse, PatchOp, StoredMessage, TurnRes
 import { draftReferenceOf } from "@/lib/client/reference";
 import { RULE_DEFINITIONS } from "@/lib/domain/reference";
 import { useHistory } from "../shell/history-context";
-import { CarrierPanel, Collapsible, FactsList, ItemsTable, NextSteps, PreflightStrip, RuleChecklist, StatusSummary } from "../booking/parts";
+import { CarrierPanel, Collapsible, FactsList, FixList, ItemsTable, PreflightStrip, RuleChecklist, StatusSummary } from "../booking/parts";
 import { Button, Notice, Skeleton, cx } from "../ui";
 import { EditBookingDialog } from "./edit-booking";
 
@@ -177,7 +177,7 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
   if (loadState === "notfound")
     return (
       <div className="m-auto max-w-md p-6 text-center" data-testid="chat-not-found">
-        <h1 className="text-lg font-semibold">Conversation not found</h1>
+        <h1 className="text-heading">Conversation not found</h1>
         <p className="mt-2 text-sm text-muted">It may have been deleted, or it belongs to a different browser session. Chats are only available in the browser that created them.</p>
         <Link href="/chat" className="mt-4 inline-flex h-9 items-center rounded-lg bg-primary px-3.5 text-sm font-medium text-on-primary">
           Start a new chat
@@ -202,7 +202,7 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
             role="tab"
             aria-selected={tab === t}
             onClick={() => setTab(t)}
-            className={cx("relative h-11 px-3 text-[13px] font-medium", tab === t ? "text-text" : "text-muted")}
+            className={cx("relative h-11 px-3 text-small font-medium", tab === t ? "text-text" : "text-muted")}
             data-testid={`tab-${t}`}
           >
             {t === "chat" ? "Conversation" : `Booking${evaluation ? ` · ${evaluation.status}` : ""}`}
@@ -219,20 +219,21 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
             stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
           }}>
             <div className="mx-auto w-full max-w-[720px] px-4 py-6">
-              <h1 className={cx("text-xl font-semibold tracking-[-0.01em] text-text", !empty && "sr-only")}>{snap?.booking.title && snap.booking.title !== "New shipment" ? snap.booking.title : "Book a shipment"}</h1>
+              <h1 className={cx("text-title text-text", !empty && "sr-only")}>{snap?.booking.title && snap.booking.title !== "New shipment" ? snap.booking.title : "Book a shipment"}</h1>
               {empty && (
                 <div data-testid="chat-empty">
-                  <p className="mt-1 text-sm text-muted">
-                    Describe your shipment in your own words — route, goods, pallets, dates. I&apos;ll fill in the booking, ask only for what&apos;s missing and check it against the 10 pre-flight rules. UK to Germany, France or the Netherlands, in GBP.
+                  <p className="mt-1 max-w-[56ch] text-sm text-muted">
+                    Say where it&apos;s going, what&apos;s in it, how many pallets and when it&apos;s ready. I&apos;ll fill in the booking and ask only for what&apos;s missing.
                   </p>
-                  <div className="mt-5 space-y-2">
+                  <p className="mt-5 text-small font-medium text-text">Try one of these</p>
+                  <div className="mt-2 space-y-2">
                     {EXAMPLES.map((ex) => (
-                      <button key={ex} type="button" onClick={() => setText(ex)} className="block w-full rounded-lg border border-border bg-sheet px-3 py-2.5 text-left text-[13px] text-text hover:bg-raised">
+                      <button key={ex} type="button" onClick={() => setText(ex)} className="block w-full rounded-lg border border-border bg-sheet px-3 py-2.5 text-left text-small text-text hover:bg-raised">
                         {ex}
                       </button>
                     ))}
                   </div>
-                  <p className="mt-4 text-xs text-muted">Prefer a form? Use <button className="font-medium text-accent underline-offset-2 hover:underline" onClick={() => setEditing(true)}>Edit booking</button>. Have a spreadsheet? <Link href="/upload" className="font-medium text-accent underline-offset-2 hover:underline">Upload Excel</Link>.</p>
+                  <p className="mt-4 text-caption text-muted">Prefer a form? <button className="font-medium text-accent underline-offset-2 hover:underline" onClick={() => setEditing(true)}>Fill it in by hand</button>. Have a spreadsheet? <Link href="/upload" className="font-medium text-accent underline-offset-2 hover:underline">Upload Excel</Link>.</p>
                 </div>
               )}
               {loadState === "loading" && (
@@ -260,16 +261,16 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
                 ))}
                 {pending && (
                   <li className="flex flex-col items-end" data-testid="pending-message">
-                    <div className={cx("max-w-[85%] rounded-2xl rounded-br-md px-3.5 py-2 text-[14px] leading-6 whitespace-pre-wrap", pending.state === "failed" ? "border border-red-line bg-red-bg/50" : "bg-active")}>
+                    <div className={cx("max-w-[85%] rounded-2xl rounded-br-md px-3.5 py-2 text-sm leading-6 whitespace-pre-wrap", pending.state === "failed" ? "border border-red-line bg-red-bg/50" : "bg-active")}>
                       {pending.text}
                     </div>
                     {pending.state === "sending" ? (
-                      <p className="mt-1 text-xs text-muted" role="status">
+                      <p className="mt-1 text-caption text-muted" role="status">
                         Reading your message and re-checking the booking…
                       </p>
                     ) : (
                       <div className="mt-1.5 flex max-w-[85%] flex-col items-end gap-1.5 text-right" role="alert">
-                        <p className="text-xs text-red-ink">{pending.error}</p>
+                        <p className="text-caption text-red-ink">{pending.error}</p>
                         <div className="flex gap-2">
                           <Button size="sm" variant="ghost" onClick={() => { setText(pending.text); setPending(null); }}>
                             Edit text
@@ -311,7 +312,7 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
                 }}
                 rows={1}
                 placeholder={evaluation?.status === "Draft" || !evaluation ? "Describe your shipment…" : "Change anything, e.g. “add one more pallet”…"}
-                className="max-h-40 min-h-11 flex-1 resize-none rounded-xl border border-control bg-sheet px-3.5 py-2.5 text-[14px] leading-6 placeholder:text-faint"
+                className="max-h-40 min-h-11 flex-1 resize-none rounded-xl border border-control bg-sheet px-3.5 py-2.5 text-sm leading-6 placeholder:text-faint"
                 disabled={loadState === "loading" || loadState === "error" || !history.sessionReady}
                 data-testid="composer"
               />
@@ -319,7 +320,7 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
                 {pending?.state === "sending" ? "Sending…" : "Send"}
               </Button>
             </div>
-            <p className="mx-auto mt-1.5 max-w-[720px] text-[11px] text-faint">AI reads your words; every check, price and date is calculated by fixed rules. Nothing is booked with a carrier.</p>
+            <p className="mx-auto mt-1.5 max-w-[720px] text-caption text-faint">AI reads your words; every check, price and date is calculated by fixed rules. Nothing is booked with a carrier.</p>
           </form>
         </section>
 
@@ -327,7 +328,7 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
         <aside aria-label="Booking" className={cx("min-h-0 w-full flex-none overflow-y-auto border-border lg:w-[380px] lg:border-l xl:w-[420px]", tab === "booking" ? "block" : "hidden lg:block")} data-testid="booking-panel">
           <div className="px-4 pt-4 pb-8">
             <div className="flex items-center justify-between gap-2">
-              <h2 className="text-[15px] font-semibold text-text">Booking</h2>
+              <h2 className="text-card text-text">Booking</h2>
               <Button size="sm" onClick={() => setEditing(true)} disabled={loadState !== "ready" || pending?.state === "sending"} data-testid="edit-booking">
                 Edit booking
               </Button>
@@ -341,91 +342,94 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
                 </div>
               ) : (
                 <div className="mt-2" data-testid="panel-empty">
-                  <p className="text-[13px] text-muted">As you describe the shipment, its details, what&apos;s missing, the checks and the carrier appear here.</p>
-                  <h3 className="mt-5 text-[13px] font-semibold text-text">What every booking is checked against</h3>
-                  <ul className="mt-2 divide-y divide-rule">
-                    {RULE_DEFINITIONS.map((r) => (
-                      <li key={r.ruleId} className="flex items-start gap-2 py-2">
-                        <span className="w-10 flex-none pt-px font-mono text-[12px] text-muted">{r.ruleId}</span>
-                        <span className="min-w-0 flex-1 text-[13px] text-text">{r.description}</span>
-                        <span className={cx("flex-none pt-px text-[11px] font-medium", r.severity === "Red" ? "text-red-ink" : "text-amber-ink")}>{r.severity}</span>
+                  <p className="text-small text-muted">Your booking builds here as you describe it. To check it, I need:</p>
+                  <ul className="mt-3 space-y-2 text-sm text-text">
+                    {["The route: UK city to a city in Germany, France or the Netherlands", "What you're sending, with HS code, quantity, price and weight", "Pallets, cartons and total weight", "When it's ready to ship, and the delivery appointment if it's a warehouse"].map((t) => (
+                      <li key={t} className="flex gap-2.5">
+                        <span aria-hidden className="mt-[7px] size-1.5 flex-none rounded-full bg-accent" />
+                        {t}
                       </li>
                     ))}
                   </ul>
-                  <p className="mt-3 text-[12px] text-muted">Red stops the shipment until fixed; Amber should be checked. Carriers A, B and C are ranked by your priority after a weight-per-pallet check.</p>
+                  <div className="mt-5">
+                    <Collapsible title="How the 10 checks work" defaultOpen={false}>
+                      <ul className="divide-y divide-rule">
+                        {RULE_DEFINITIONS.map((r) => (
+                          <li key={r.ruleId} className="flex items-start gap-2 py-2">
+                            <span className="w-10 flex-none pt-px font-mono text-caption text-muted">{r.ruleId}</span>
+                            <span className="min-w-0 flex-1 text-small text-text">{r.description}</span>
+                            <span className={cx("flex-none pt-px text-caption font-medium", r.severity === "Red" ? "text-red-ink" : "text-amber-ink")}>{r.severity === "Red" ? "Must fix" : "Check"}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="mt-3 text-caption text-muted">Must fix stops the shipment until it&apos;s resolved; Check should be looked at. Carriers A, B and C are ranked by your priority after a weight-per-pallet check.</p>
+                    </Collapsible>
+                  </div>
                 </div>
               )
             ) : (
-              <div className="mt-3 space-y-4">
+              <div className="mt-3 space-y-5">
                 <StatusSummary evaluation={evaluation} revision={snap?.booking.revision} saved={saveState} />
                 <PreflightStrip rules={evaluation.rules} onSelect={(id) => document.getElementById(`rule-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })} />
 
+                {(confirmed || canConfirm) && (
+                  <div className={cx("rounded-xl border p-3", confirmed ? "border-pass-line bg-pass-bg" : "border-border")} data-testid="confirmation">
+                    {confirmed ? (
+                      <>
+                        <p className="text-small font-medium text-pass-ink">Saved as a ready-to-submit draft · {draftReferenceOf(snap!.booking.id)}</p>
+                        <p className="mt-1 text-small text-pass-ink">Not a carrier booking: submit it yourself. Any later change clears this.</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-small text-text">{evaluation.status === "Needs attention" ? "Complete, with items to check. You can still save it as a draft." : "Complete and all 10 checks pass."}</p>
+                        <Button variant="primary" size="sm" className="mt-2" onClick={() => void confirmDraft()} disabled={confirmBusy} data-testid="confirm-draft">
+                          {confirmBusy ? "Saving…" : "Save as ready-to-submit draft"}
+                        </Button>
+                      </>
+                    )}
+                    {panelNotice && <p className="mt-2 text-caption text-red-ink">{panelNotice}</p>}
+                  </div>
+                )}
+
+                <FixList rules={evaluation.rules} />
+
                 {evaluation.missingFields.length > 0 && (
                   <div data-testid="missing-fields">
-                    <h3 className="text-[13px] font-semibold text-text">
+                    <h3 className="text-card text-text">
                       Still needed <span className="num font-normal text-muted">{evaluation.missingFields.length}</span>
                     </h3>
                     <ul className="mt-1.5 flex flex-wrap gap-1.5">
                       {evaluation.missingFields.slice(0, 14).map((m) => (
-                        <li key={m.key} className="rounded-full bg-raised px-2.5 py-1 text-[12px] text-muted">
+                        <li key={m.key} className="rounded-full bg-raised px-2.5 py-1 text-caption text-muted">
                           {m.label}
                         </li>
                       ))}
-                      {evaluation.missingFields.length > 14 && <li className="px-1 py-1 text-[12px] text-muted">+{evaluation.missingFields.length - 14} more</li>}
+                      {evaluation.missingFields.length > 14 && <li className="px-1 py-1 text-caption text-muted">+{evaluation.missingFields.length - 14} more</li>}
                     </ul>
                   </div>
                 )}
 
-                {evaluation.status !== "Draft" && (
-                  <div className={cx("rounded-lg border p-3", confirmed ? "border-pass-line bg-pass-bg/40" : "border-border")} data-testid="confirmation">
-                    {confirmed ? (
-                      <>
-                        <p className="text-[13px] font-semibold text-text">Saved as a ready-to-submit draft · {draftReferenceOf(snap!.booking.id)}</p>
-                        <p className="mt-1 text-[13px] text-muted">This is a prepared booking, not a carrier booking. Submit it to the carrier yourself; any later change re-runs the checks and clears this confirmation.</p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-[13px] text-text">
-                          {evaluation.status === "Blocked"
-                            ? "Blocked: fix the Red issues before this shipment can be submitted."
-                            : evaluation.status === "Needs attention"
-                              ? "Complete, with Amber items to check. You can save it as a draft to submit."
-                              : "Complete and all 10 checks pass."}
-                        </p>
-                        {canConfirm && (
-                          <Button variant="primary" size="sm" className="mt-2" onClick={() => void confirmDraft()} disabled={confirmBusy} data-testid="confirm-draft">
-                            {confirmBusy ? "Saving…" : "Save as ready-to-submit draft"}
-                          </Button>
-                        )}
-                      </>
-                    )}
-                    {panelNotice && <p className="mt-2 text-[12px] text-red-ink">{panelNotice}</p>}
-                  </div>
-                )}
-
-                <Collapsible title="Shipment details">
-                  <FactsList draft={snap!.draft} missingKeys={missingKeys} />
-                </Collapsible>
-                <Collapsible title="Items" count={String(snap!.draft.items.length)}>
-                  <ItemsTable items={snap!.draft.items} />
-                </Collapsible>
-                <Collapsible title="Carrier">
-                  <CarrierPanel carrier={evaluation.carrier} status={evaluation.status} timeline={evaluation.timeline} />
-                </Collapsible>
-                <Collapsible title="Pre-flight checks" count={`${evaluation.rules.filter((r) => r.status === "pass").length}/10 pass`}>
-                  <RuleChecklist rules={evaluation.rules} />
-                  {evaluation.notes.map((n, i) => (
-                    <p key={i} className="mt-2 rounded-lg bg-raised px-3 py-2 text-[12px] text-muted">
-                      Clarification (not scored): {n}
-                    </p>
-                  ))}
-                </Collapsible>
-                <Collapsible title="Next steps">
-                  <NextSteps evaluation={evaluation} />
-                </Collapsible>
+                <div>
+                  <Collapsible title="Carrier and price">
+                    <CarrierPanel carrier={evaluation.carrier} status={evaluation.status} timeline={evaluation.timeline} />
+                  </Collapsible>
+                  <Collapsible title="Shipment details">
+                    <FactsList draft={snap!.draft} missingKeys={missingKeys} />
+                  </Collapsible>
+                  <Collapsible title="Items" count={String(snap!.draft.items.length)}>
+                    <ItemsTable items={snap!.draft.items} />
+                  </Collapsible>
+                  <Collapsible title="Checks that passed" count={`${evaluation.rules.filter((r) => r.status === "pass").length}/10`} defaultOpen={false}>
+                    <RuleChecklist rules={evaluation.rules} filter="passing" />
+                    {evaluation.notes.map((n, i) => (
+                      <p key={i} className="mt-2 rounded-lg bg-raised px-3 py-2 text-caption text-muted">
+                        Clarification (not scored): {n}
+                      </p>
+                    ))}
+                  </Collapsible>
                 {snap!.revisions.length > 1 && (
                   <Collapsible title="Change log" count={String(snap!.revisions.length - 1)} defaultOpen={false}>
-                    <ol className="space-y-1 text-[12px] text-muted" data-testid="change-log">
+                    <ol className="space-y-1 text-caption text-muted" data-testid="change-log">
                       {snap!.revisions
                         .filter((r) => r.revision > 0)
                         .map((r) => (
@@ -440,6 +444,7 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
                     </ol>
                   </Collapsible>
                 )}
+                </div>
               </div>
             )}
           </div>
@@ -487,22 +492,22 @@ const emptyDraftClient = {
 function MessageBubble({ m }: { m: StoredMessage }) {
   if (m.role === "event")
     return (
-      <li className="text-center text-[12px] text-muted" data-role="event">
+      <li className="text-center text-caption text-muted" data-role="event">
         <span className="inline-block rounded-full bg-raised px-3 py-1">{m.content}</span>
       </li>
     );
   if (m.role === "user")
     return (
       <li className="flex justify-end" data-role="user">
-        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-active px-3.5 py-2 text-[14px] leading-6 break-words whitespace-pre-wrap text-text">{m.content}</div>
+        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-active px-3.5 py-2 text-sm leading-6 break-words whitespace-pre-wrap text-text">{m.content}</div>
       </li>
     );
   return (
     <li className="flex gap-2.5" data-role="assistant">
-      <span aria-hidden className="mt-1 grid size-6 flex-none place-items-center rounded-md bg-accent-soft text-[10px] font-semibold text-accent">
+      <span aria-hidden className="mt-1 grid size-6 flex-none place-items-center rounded-md bg-accent-soft text-caption font-semibold text-accent">
         S
       </span>
-      <div className="min-w-0 flex-1 text-[14px] leading-6 break-words whitespace-pre-wrap text-text">{m.content}</div>
+      <div className="min-w-0 flex-1 text-sm leading-6 break-words whitespace-pre-wrap text-text">{m.content}</div>
     </li>
   );
 }

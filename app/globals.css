@@ -96,6 +96,26 @@
   --color-na-line: var(--na-line);
   --color-positive: var(--positive);
   --color-negative: var(--negative);
+  /* Type scale: size separates levels, weight only refines them. */
+  --text-title: 1.75rem;
+  --text-title--line-height: 2.125rem;
+  --text-title--letter-spacing: -0.015em;
+  --text-title--font-weight: 600;
+  --text-heading: 1.125rem;
+  --text-heading--line-height: 1.5rem;
+  --text-heading--letter-spacing: -0.005em;
+  --text-heading--font-weight: 600;
+  --text-card: 0.9375rem;
+  --text-card--line-height: 1.25rem;
+  --text-card--font-weight: 600;
+  --text-small: 0.8125rem;
+  --text-small--line-height: 1.125rem;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1rem;
+  --text-figure: 1.75rem;
+  --text-figure--line-height: 2rem;
+  --text-figure--letter-spacing: -0.02em;
+  --text-figure--font-weight: 600;
   --font-sans: var(--font-public), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-plex-mono), ui-monospace, monospace;
 }

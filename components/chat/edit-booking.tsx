@@ -90,10 +90,10 @@ export function EditBookingDialog({ open, draft, onClose, onSubmit, busy, error 
     return ops;
   }
 
-  const input = "h-9 w-full rounded-lg border border-control bg-sheet px-2.5 text-[13px]";
+  const input = "h-9 w-full rounded-lg border border-control bg-sheet px-2.5 text-small";
   const field = (key: string, label: string, el?: React.ReactNode) => (
     <label className="block">
-      <span className="mb-1 block text-[12px] font-medium text-muted">{label}</span>
+      <span className="mb-1 block text-caption font-medium text-muted">{label}</span>
       {el ?? <input name={key} autoComplete="off" inputMode={NUMERIC.has(key) ? "decimal" : undefined} className={input} value={b[key] ?? ""} onChange={(e) => setB({ ...b, [key]: e.target.value })} />}
     </label>
   );
@@ -127,10 +127,10 @@ export function EditBookingDialog({ open, draft, onClose, onSubmit, busy, error 
         className="flex max-h-[92dvh] flex-col"
       >
         <header className="border-b border-border px-5 py-4">
-          <h2 id="edit-title" className="text-base font-semibold">
+          <h2 id="edit-title" className="text-heading">
             Edit booking
           </h2>
-          <p className="mt-0.5 text-[13px] text-muted">Changes are checked against all 10 rules and saved as a new revision. Leave a field blank if it&apos;s unknown.</p>
+          <p className="mt-0.5 text-small text-muted">Changes are checked against all 10 rules and saved as a new revision. Leave a field blank if it&apos;s unknown.</p>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -154,12 +154,12 @@ export function EditBookingDialog({ open, draft, onClose, onSubmit, busy, error 
               </select>,
             )}
           </div>
-          <h3 className="mt-6 text-[13px] font-semibold">Items</h3>
+          <h3 className="mt-6 text-small font-semibold">Items</h3>
           <div className="mt-2 space-y-3">
             {items.map((it, idx) =>
               it.removed ? null : (
                 <fieldset key={it.itemId ?? `new-${idx}`} className="rounded-lg border border-border p-3">
-                  <legend className="px-1 text-[12px] text-muted">{it.sku || `Item ${idx + 1}`}</legend>
+                  <legend className="px-1 text-caption text-muted">{it.sku || `Item ${idx + 1}`}</legend>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
                     {(
                       [
@@ -174,12 +174,12 @@ export function EditBookingDialog({ open, draft, onClose, onSubmit, busy, error 
                       ] as const
                     ).map(([k, label]) => (
                       <label key={k} className="block">
-                        <span className="mb-1 block text-[11px] text-muted">{label}</span>
+                        <span className="mb-1 block text-caption text-muted">{label}</span>
                         <input name={`items.${idx}.${k}`} autoComplete="off" spellCheck={k === "description"} inputMode={NUMERIC.has(k) ? "decimal" : undefined} className={input} value={it[k]} onChange={(e) => setItems(items.map((x, i) => (i === idx ? { ...x, [k]: e.target.value } : x)))} />
                       </label>
                     ))}
                     <label className="block">
-                      <span className="mb-1 block text-[11px] text-muted">Country of origin</span>
+                      <span className="mb-1 block text-caption text-muted">Country of origin</span>
                       <select name={`items.${idx}.countryOfOrigin`} className={input} value={it.countryOfOrigin} onChange={(e) => setItems(items.map((x, i) => (i === idx ? { ...x, countryOfOrigin: e.target.value } : x)))}>
                         <option value="">—</option>
                         {ITEM_ORIGIN_COUNTRIES.map((c) => (

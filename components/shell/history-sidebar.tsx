@@ -7,6 +7,7 @@ import { api, ApiClientError, ensureSession } from "@/lib/client/api";
 import type { BookingListItem } from "@/lib/client/types";
 import { Button, ConfirmDialog, Skeleton, cx, relativeTime } from "../ui";
 import { useHistory } from "./history-context";
+import { NAV } from "./nav";
 
 export function LogoMark({ className }: { className?: string }) {
   // A pallet seen from the side: three deck boards over two blocks. Drawn for ShipmentOS.
@@ -74,9 +75,11 @@ export function HistorySidebar({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <nav aria-label="Conversation history" className="flex h-full min-h-0 flex-col">
       <div className="flex h-12 flex-none items-center gap-2 px-4">
-        <LogoMark className="size-6" />
-        <span translate="no" className="text-[15px] font-semibold tracking-[-0.01em] text-ink">ShipmentOS</span>
-        <span className="ml-auto text-[11px] text-faint">UK → EU</span>
+        <Link href="/today" onClick={onNavigate} className="flex items-center gap-2 rounded-md" aria-label="ShipmentOS home">
+          <LogoMark className="size-6" />
+          <span translate="no" className="text-card text-ink">ShipmentOS</span>
+        </Link>
+        <span className="ml-auto text-caption text-faint">UK → EU</span>
       </div>
       <div className="px-3 pt-1 pb-3">
         <Link
@@ -90,18 +93,37 @@ export function HistorySidebar({ onNavigate }: { onNavigate?: () => void }) {
           className="flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-control bg-sheet text-sm font-medium text-text hover:bg-raised"
           data-testid="new-chat"
         >
-          <span aria-hidden className="text-base leading-none">+</span> New chat
+          <span aria-hidden className="text-base leading-none">+</span> New booking
         </Link>
       </div>
 
-      <div className="flex items-center justify-between px-4 pt-2 pb-1.5">
-        <h2 className="text-xs font-medium text-faint">Previous chats</h2>
-        {h.chats && h.chats.length > 0 && <span className="num text-xs text-faint">{h.chats.length}{h.nextCursor ? "+" : ""}</span>}
+      <ul className="space-y-0.5 px-2 pb-2" aria-label="Sections">
+        {NAV.map((n) => {
+          const on = n.match(pathname);
+          return (
+            <li key={n.href}>
+              <Link
+                href={n.href}
+                onClick={onNavigate}
+                aria-current={on ? "page" : undefined}
+                className={cx("flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm", on ? "bg-active font-medium text-text" : "text-muted hover:bg-active hover:text-text")}
+              >
+                {n.icon}
+                {n.label}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="flex items-center justify-between px-4 pt-3 pb-1.5">
+        <h2 className="text-caption font-medium text-faint">Previous chats</h2>
+        {h.chats && h.chats.length > 0 && <span className="num text-caption text-faint">{h.chats.length}{h.nextCursor ? "+" : ""}</span>}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2" data-testid="chat-list">
         {!h.sessionReady || h.chats === null ? (
           h.chatsError ? (
-            <p className="px-2 py-2 text-[13px] text-red-ink">
+            <p className="px-2 py-2 text-small text-red-ink">
               {h.chatsError}{" "}
               <button className="underline" onClick={() => void h.refreshChats()}>
                 Retry
@@ -115,7 +137,7 @@ export function HistorySidebar({ onNavigate }: { onNavigate?: () => void }) {
             </div>
           )
         ) : h.chats.length === 0 ? (
-          <p className="px-2 py-2 text-[13px] leading-5 text-muted">No chats yet in this browser. Start one and it will appear here.</p>
+          <p className="px-2 py-2 text-small leading-5 text-muted">No chats yet in this browser. Start one and it will appear here.</p>
         ) : (
           <ul className="space-y-0.5">
             {h.chats.map((c) => {
@@ -132,8 +154,8 @@ export function HistorySidebar({ onNavigate }: { onNavigate?: () => void }) {
                       active && "bg-active",
                     )}
                   >
-                    <span className="block truncate text-[13px] font-medium text-text">{c.title}</span>
-                    <span className="mt-0.5 flex items-center gap-1.5 text-xs text-muted">
+                    <span className="block truncate text-small font-medium text-text">{c.title}</span>
+                    <span className="mt-0.5 flex items-center gap-1.5 text-caption text-muted">
                       <span aria-hidden className={cx("size-1.5 flex-none rounded-full", STATUS_DOT[c.status] ?? STATUS_DOT.Draft)} />
                       <span className="truncate">{c.status}</span>
                       <span aria-hidden>·</span>
@@ -168,9 +190,10 @@ export function HistorySidebar({ onNavigate }: { onNavigate?: () => void }) {
         )}
       </div>
 
-      <div className="flex-none space-y-2 px-4 pt-3 pb-4 text-xs leading-[18px] text-muted">
+      <div className="flex-none space-y-2 px-4 pt-3 pb-4 text-caption leading-[18px] text-muted">
+        <p className="text-muted">Booking preparation demo. No carrier is contacted.</p>
         <p>No login. Your chats and uploads are kept in this browser only, for 7 days after your last visit. They don&apos;t sync to other devices.</p>
-        <button className="text-xs font-medium text-muted underline underline-offset-2 hover:text-red-ink" onClick={() => setConfirmReset(true)}>
+        <button className="text-caption font-medium text-muted underline underline-offset-2 hover:text-red-ink" onClick={() => setConfirmReset(true)}>
           Reset my data
         </button>
       </div>

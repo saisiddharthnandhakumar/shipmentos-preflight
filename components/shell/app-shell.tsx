@@ -6,13 +6,8 @@ import { useState, useSyncExternalStore, type ReactNode } from "react";
 import { Button, Drawer, Notice, cx } from "../ui";
 import { HistoryProvider, useHistory } from "./history-context";
 import { HistorySidebar, LogoMark } from "./history-sidebar";
+import { NAV } from "./nav";
 import { ThemeToggle } from "./theme-toggle";
-
-const MODES = [
-  { href: "/chat", label: "Chat to book", match: (p: string) => p === "/" || p.startsWith("/chat") },
-  { href: "/upload", label: "Upload Excel", match: (p: string) => p.startsWith("/upload") },
-  { href: "/bookings", label: "All bookings", match: (p: string) => p.startsWith("/bookings") },
-];
 
 const RAIL_KEY = "shipmentos.rail-collapsed";
 
@@ -104,8 +99,8 @@ function Shell({ children }: { children: ReactNode }) {
           <span className="flex items-center gap-2 lg:hidden">
             <LogoMark className="size-5" />
           </span>
-          <nav aria-label="Mode" className="flex h-12 min-w-0 items-stretch gap-1 overflow-x-auto pr-2">
-            {MODES.map((m) => {
+          <nav aria-label="Mode" className="flex h-12 min-w-0 items-stretch gap-1 overflow-x-auto pr-2 lg:hidden">
+            {NAV.map((m) => {
               const active = m.match(pathname);
               return (
                 <Link
@@ -113,7 +108,7 @@ function Shell({ children }: { children: ReactNode }) {
                   href={m.href}
                   aria-current={active ? "page" : undefined}
                   className={cx(
-                    "relative flex flex-none items-center px-2.5 text-[13px] font-medium whitespace-nowrap",
+                    "relative flex flex-none items-center px-2.5 text-small font-medium whitespace-nowrap",
                     active ? "text-text" : "text-muted hover:text-text",
                   )}
                 >
@@ -123,8 +118,7 @@ function Shell({ children }: { children: ReactNode }) {
               );
             })}
           </nav>
-          <p className="ml-auto hidden pr-2 text-xs text-faint xl:block">Booking preparation demo · no carrier is contacted</p>
-          <div className="ml-auto flex flex-none items-center xl:ml-0">
+          <div className="ml-auto flex flex-none items-center">
             <ThemeToggle />
           </div>
         </header>
@@ -133,7 +127,7 @@ function Shell({ children }: { children: ReactNode }) {
           <div className="flex h-full min-h-0 flex-col overflow-hidden border-border bg-sheet lg:rounded-2xl lg:border">
             {h.sessionError ? (
               <div className="m-auto max-w-md p-6 text-center">
-                <h1 className="text-lg font-semibold">We couldn&apos;t start your session</h1>
+                <h1 className="text-heading">We couldn&apos;t start your session</h1>
                 <p className="mt-2 text-sm text-muted">{h.sessionError} Your existing data (if any) is safe.</p>
                 <Button variant="primary" className="mt-4" onClick={h.retrySession}>
                   Try again

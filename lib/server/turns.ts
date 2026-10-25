@@ -50,8 +50,9 @@ export async function runTurn(input: TurnInput): Promise<TurnResponse> {
   if (prior) return { ...(prior as TurnResponse), replayed: true };
 
   if (loaded.row.revision !== expectedRevision) throw conflict(await bookingSnapshot(db, sessionId, bookingId));
-  if (loaded.row.source === "excel" && input.kind !== "confirm")
-    throw new ApiError(400, "READ_ONLY", "Imported bookings are read-only here. Fix the spreadsheet and upload it again.");
+
+  if (loaded.row.source === "excel" && input.kind === "chat")
+    throw new ApiError(400, "CHAT_UNSUPPORTED", "Imported bookings are changed with Edit booking, not by chat.");
 
   const before = loaded.draft;
   const previous = await evaluateDraft(db, before);

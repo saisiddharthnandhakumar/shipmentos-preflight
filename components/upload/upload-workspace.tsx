@@ -5,8 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiClientError } from "@/lib/client/api";
 import type { BookingListItem } from "@/lib/client/types";
-import { BookingDetail } from "../booking/booking-detail";
-import { Button, Drawer, Notice, Skeleton, StatusPill, cx, relativeTime } from "../ui";
+import { Button, Notice, PageHeader, Skeleton, StatusPill, cx, relativeTime } from "../ui";
 
 type Summary = {
   total: number;
@@ -59,12 +58,15 @@ export function UploadStart() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-[960px] px-4 py-6 lg:px-8 lg:py-8">
-        <h1 className="text-2xl font-semibold tracking-[-0.01em] text-text">Upload Excel</h1>
-        <p className="mt-1 max-w-[640px] text-sm text-muted">
-          Check every booking in a workbook against the 10 pre-flight rules. Use the template&apos;s <span className="font-medium text-text">Bookings</span> and{" "}
-          <span className="font-medium text-text">Items</span> sheets; carrier rates and the rulebook are already built in. No AI is used for uploads.
-        </p>
+      <div className="mx-auto max-w-5xl px-4 py-6 lg:px-8 lg:py-8">
+        <PageHeader
+          title="Upload Excel"
+          description={
+            <>
+              Check every booking in a workbook against the 10 pre-flight rules. Use the <span className="font-medium text-text">Bookings</span> and <span className="font-medium text-text">Items</span> sheets; carrier rates and the rulebook are built in. No AI is used for uploads.
+            </>
+          }
+        />
 
         <div
           onDragOver={(e) => {
@@ -87,8 +89,8 @@ export function UploadStart() {
             <rect x="8" y="5" width="24" height="30" rx="3" />
             <path d="M13 13h14M13 18h14M13 23h9M20 28v-8m-3 3 3-3 3 3" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          <p className="mt-3 text-[15px] font-medium text-text">{busy ? "Checking your bookings…" : "Drop your .xlsx here"}</p>
-          <p className="mt-1 text-[13px] text-muted">Up to 4 MB · 2,000 bookings · 10,000 item rows</p>
+          <p className="mt-3 text-card font-medium text-text">{busy ? "Checking your bookings…" : "Drop your .xlsx here"}</p>
+          <p className="mt-1 text-small text-muted">Up to 4 MB · 2,000 bookings · 10,000 item rows</p>
           <input
             ref={input}
             type="file"
@@ -113,28 +115,28 @@ export function UploadStart() {
         )}
 
         <section className="mt-10" aria-labelledby="prev-uploads">
-          <h2 id="prev-uploads" className="text-[15px] font-semibold text-text">
+          <h2 id="prev-uploads" className="text-heading text-text">
             Previous uploads in this browser
           </h2>
           {batchesError ? (
-            <p className="mt-2 text-[13px] text-red-ink">{batchesError}</p>
+            <p className="mt-2 text-small text-red-ink">{batchesError}</p>
           ) : batches === null ? (
             <div className="mt-3 space-y-2">
               <Skeleton className="h-10" />
               <Skeleton className="h-10" />
             </div>
           ) : batches.length === 0 ? (
-            <p className="mt-2 rounded-lg border border-dashed border-control px-3 py-2.5 text-[13px] text-muted">No uploads yet. Results you upload stay here for 7 days.</p>
+            <p className="mt-2 rounded-lg border border-dashed border-control px-3 py-2.5 text-small text-muted">No uploads yet. Results you upload stay here for 7 days.</p>
           ) : (
             <ul className="mt-2 divide-y divide-rule">
               {batches.map((b) => (
                 <li key={b.id}>
                   <Link href={`/upload/${b.id}`} className="flex items-center gap-3 py-2.5 hover:bg-raised">
-                    <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-text">{b.filename}</span>
-                    <span className="num hidden text-[12px] text-muted sm:inline">
+                    <span className="min-w-0 flex-1 truncate text-small font-medium text-text">{b.filename}</span>
+                    <span className="num hidden text-caption text-muted sm:inline">
                       {b.summary.total} bookings · {b.summary.blocked} blocked · {b.summary.needsAttention} attention · {b.summary.ready} ready
                     </span>
-                    <time className="flex-none text-[12px] text-muted" dateTime={b.createdAt}>
+                    <time className="flex-none text-caption text-muted" dateTime={b.createdAt}>
                       {relativeTime(b.createdAt)}
                     </time>
                   </Link>
@@ -165,7 +167,6 @@ export function UploadResults({ batchId }: { batchId: string }) {
     router.replace(`${pathname}${next.size ? `?${next}` : ""}`, { scroll: false });
   };
   const [q, setQ] = useState("");
-  const [open, setOpen] = useState<string | null>(null);
 
   const load = useCallback(() => {
     api<BatchDetail>(`/api/imports/${batchId}`)
@@ -215,10 +216,10 @@ export function UploadResults({ batchId }: { batchId: string }) {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="px-4 py-6 lg:px-8">
+      <div className="mx-auto max-w-6xl px-4 py-6 lg:px-8 lg:py-8">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="truncate text-2xl font-semibold tracking-[-0.01em] text-text" data-testid="upload-title">
+            <h1 className="truncate text-title text-text" data-testid="upload-title">
               {data.batch.filename}
             </h1>
             <p className="mt-1 text-sm text-muted">
@@ -244,8 +245,8 @@ export function UploadResults({ batchId }: { batchId: string }) {
                 c.key === "issues" && counts.length % 2 === 1 && "col-span-2 sm:col-span-1",
               )}
             >
-              <span className="block text-[12px] text-muted">{c.label}</span>
-              <span className="num mt-0.5 block text-base font-semibold text-text" data-testid={`count-${c.key}`}>
+              <span className="block text-caption text-muted">{c.label}</span>
+              <span className="num mt-0.5 block text-heading text-text" data-testid={`count-${c.key}`}>
                 {c.value}
               </span>
             </button>
@@ -267,7 +268,7 @@ export function UploadResults({ batchId }: { batchId: string }) {
         )}
 
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-[15px] font-semibold text-text">
+          <h2 className="text-heading text-text">
             Bookings <span className="num font-normal text-muted">{rows.length} shown</span>
           </h2>
           <label className="relative block w-full sm:w-72">
@@ -280,7 +281,7 @@ export function UploadResults({ batchId }: { batchId: string }) {
               autoComplete="off"
               spellCheck={false}
               placeholder="Search ID, seller, country, status…"
-              className="h-9 w-full rounded-lg border border-control bg-sheet px-3 text-[13px] placeholder:text-faint"
+              className="h-9 w-full rounded-lg border border-control bg-sheet px-3 text-small placeholder:text-faint"
               data-testid="upload-search"
             />
           </label>
@@ -288,34 +289,34 @@ export function UploadResults({ batchId }: { batchId: string }) {
 
         <ul className="mt-2 divide-y divide-rule sm:hidden" aria-label="Bookings">
           {rows.length === 0 ? (
-            <li className="py-4 text-center text-[13px] text-muted">No bookings match this filter.</li>
+            <li className="py-4 text-center text-small text-muted">No bookings match this filter.</li>
           ) : (
             rows.map((b) => (
               <li key={b.id}>
-                <button type="button" className="block w-full py-2.5 text-left" onClick={() => setOpen(b.id)}>
+                <Link href={`/bookings/${b.id}`} className="block w-full py-2.5 text-left">
                   <span className="flex items-start justify-between gap-2">
-                    <span className="min-w-0 truncate text-[13px] text-text">
+                    <span className="min-w-0 truncate text-small text-text">
                       <span className="font-mono">{b.externalBookingId ?? "—"}</span> {b.title.replace(/^[^·]*·\s*/, "")}
                     </span>
                     <StatusPill status={b.status} />
                   </span>
-                  <span className="num mt-0.5 block truncate text-[12px] text-muted">
-                    {b.sellerName ?? "—"} · {b.redCount} Red · {b.amberCount} Amber{withIssues.has(b.id) ? " · input issue" : ""}
+                  <span className="num mt-0.5 block truncate text-caption text-muted">
+                    {b.sellerName ?? "—"} · {b.redCount} to fix · {b.amberCount} to check{withIssues.has(b.id) ? " · input issue" : ""}
                   </span>
-                </button>
+                </Link>
               </li>
             ))
           )}
         </ul>
         <div className="mt-2 hidden overflow-x-auto sm:block">
-          <table className="w-full min-w-[720px] text-[13px]" data-testid="results-table">
+          <table className="w-full min-w-[720px] text-small" data-testid="results-table">
             <thead>
-              <tr className="text-left text-[12px] text-muted">
+              <tr className="text-left text-caption text-muted">
                 <th className="py-2 pr-3 font-normal">Booking</th>
                 <th className="py-2 pr-3 font-normal">Route</th>
                 <th className="py-2 pr-3 font-normal">Status</th>
-                <th className="py-2 pr-3 text-right font-normal">Red</th>
-                <th className="py-2 pr-3 text-right font-normal">Amber</th>
+                <th className="py-2 pr-3 text-right font-normal">To fix</th>
+                <th className="py-2 pr-3 text-right font-normal">To check</th>
                 <th className="py-2 font-normal">
                   <span className="sr-only">Open</span>
                 </th>
@@ -330,32 +331,29 @@ export function UploadResults({ batchId }: { batchId: string }) {
                 </tr>
               ) : (
                 rows.map((b) => (
-                  <tr key={b.id} className="cursor-pointer border-t border-rule hover:bg-raised" onClick={() => setOpen(b.id)} data-testid="result-row" data-external-id={b.externalBookingId ?? ""}>
+                  <tr key={b.id} className="cursor-pointer border-t border-rule hover:bg-raised" onClick={() => router.push(`/bookings/${b.id}`)} data-testid="result-row" data-external-id={b.externalBookingId ?? ""}>
                     <td className="py-2.5 pr-3">
                       <span className="font-mono text-text">{b.externalBookingId ?? "—"}</span>
-                      <span className="block max-w-[220px] truncate text-[12px] text-muted">{b.sellerName ?? "—"}</span>
+                      <span className="block max-w-[220px] truncate text-caption text-muted">{b.sellerName ?? "—"}</span>
                     </td>
                     <td className="py-2.5 pr-3 text-text">{b.title.replace(/^[^·]*·\s*/, "")}</td>
                     <td className="py-2.5 pr-3">
                       <span className="flex items-center gap-1.5">
                         <StatusPill status={b.status} />
-                        {withIssues.has(b.id) && <span className="text-[11px] text-red-ink">input issue</span>}
+                        {withIssues.has(b.id) && <span className="text-caption text-red-ink">input issue</span>}
                       </span>
                     </td>
                     <td className={cx("num py-2.5 pr-3 text-right", b.redCount ? "font-medium text-red-ink" : "text-muted")}>{b.redCount}</td>
                     <td className={cx("num py-2.5 pr-3 text-right", b.amberCount ? "font-medium text-amber-ink" : "text-muted")}>{b.amberCount}</td>
                     <td className="py-2.5 text-right">
-                      <button
-                        type="button"
-                        className="text-[13px] font-medium text-accent hover:underline"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpen(b.id);
-                        }}
+                      <Link
+                        href={`/bookings/${b.id}`}
+                        className="text-small font-medium text-accent hover:underline"
+                        onClick={(e) => e.stopPropagation()}
                         aria-label={`Open details for ${b.externalBookingId ?? b.title}`}
                       >
                         Details
-                      </button>
+                      </Link>
                     </td>
                   </tr>
                 ))
@@ -364,9 +362,6 @@ export function UploadResults({ batchId }: { batchId: string }) {
           </table>
         </div>
       </div>
-      <Drawer open={Boolean(open)} onClose={() => setOpen(null)} label="Booking details">
-        {open && <BookingDetail bookingId={open} onClose={() => setOpen(null)} />}
-      </Drawer>
     </div>
   );
 }

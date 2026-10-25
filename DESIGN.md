@@ -3,14 +3,33 @@
 Based on the Mercury DESIGN.md reference (design language only — no brand assets), adapted for an
 operations web app. The full reference follows below the ShipmentOS adaptation notes.
 
-## Palette and theme (current, supersedes the Mercury colour notes below)
+## Palette, type and theme (current; the Mercury reference further down is historical background only)
 
-Mercury's indigo/violet was replaced: a harbour-slate ink (#14262e) with North Sea blue (#1d6a8c) as the only
-accent, on warm concrete neutrals (frame #e9ece7, sheet #fbfbf8). Type is Public Sans (transport-signage
-heritage) with IBM Plex Mono for IDs. All colours are CSS tokens in `app/globals.css`; a dark set lives under
-`:root[data-theme="dark"]` (frame #0c1215, sheet #141b1f, accent #6cb8d6). The theme is set before paint by an
-inline script in `app/layout.tsx` (stored in localStorage `shipmentos.theme`, falls back to the OS setting) and
-switched by `components/shell/theme-toggle.tsx` in the top bar. Never hardcode colours in components; use tokens.
+**Colour.** Harbour-slate ink (#14262e) with North Sea blue (#1d6a8c) as the only accent, on warm concrete
+neutrals (frame #e9ece7, sheet #fbfbf8). Accent marks interactive and selected state only. Status colours
+(red, amber, pass, not-evaluable) are for status only and always carry a glyph and a word. A dark set lives
+under `:root[data-theme="dark"]` (frame #0c1215, sheet #141b1f, accent #6cb8d6). The theme is set before
+paint by an inline script in `app/layout.tsx` (localStorage `shipmentos.theme`, falling back to the OS
+setting) and switched by `components/shell/theme-toggle.tsx`. Never hardcode colours; use tokens.
+
+**Type (Public Sans; IBM Plex Mono only for IDs and codes).** Size separates levels; weight only refines them.
+Tokens are in `app/globals.css`; do not write `text-[Npx]`.
+
+| Token | Size / line | Use |
+|---|---|---|
+| `text-title` | 28 / 34, 600 | One per page |
+| `text-heading` | 18 / 24, 600 | Section headings |
+| `text-card` | 15 / 20, 600 | Card and group titles |
+| `text-sm` | 14 / 20 | Body |
+| `text-small` | 13 / 18 | Secondary text, table cells, controls |
+| `text-caption` | 12 / 16 | Meta, chips, hints |
+| `text-figure` | 28 / 32, 600 | Counts and prices |
+
+**Vocabulary.** Booking status: Blocked / Needs attention / Ready to submit / Draft. Rule results: Must fix
+(rulebook Red) and Check (rulebook Amber). The domain data and the engine headline still say Red and Amber.
+
+**Screens.** Today (work queue) is home. A booking, from chat or Excel, opens at `/bookings/[id]`: status and
+the "Fix these first" list lead, details follow. Chat shows the same sections in its side panel.
 
 ## ShipmentOS adaptations
 

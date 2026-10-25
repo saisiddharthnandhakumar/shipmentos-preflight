@@ -5,8 +5,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiClientError } from "@/lib/client/api";
 import type { BookingListItem } from "@/lib/client/types";
-import { BookingDetail } from "../booking/booking-detail";
-import { Button, Drawer, Notice, Skeleton, StatusPill, cx, relativeTime } from "../ui";
+import { formatUK } from "@/lib/domain/dates";
+import { Button, EmptyState, Notice, PageHeader, Skeleton, StatusPill, cx, relativeTime } from "../ui";
 
 type Source = "all" | "chat" | "excel";
 const STATUSES = ["Draft", "Blocked", "Needs attention", "Ready to submit"] as const;
@@ -33,7 +33,6 @@ export function BookingsHistory() {
   const setStatus = (s: string) => setParam("status", s);
   const [result, setResult] = useState<{ key: string; items: BookingListItem[]; cursor: string | null; error: string | null } | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [open, setOpen] = useState<string | null>(null);
 
   useEffect(() => {
     if (q.trim() === debounced) return;
@@ -80,40 +79,59 @@ export function BookingsHistory() {
     }
   }
 
+  const route = (b: BookingListItem) => {
+    const from = b.originCity;
+    const to = b.destinationCity ?? b.destinationCountry;
+    return from || to ? `${from ?? "?"} → ${to ?? "?"}` : "Route not given yet";
+  };
+  const name = (b: BookingListItem) => (b.source === "excel" && b.externalBookingId ? b.externalBookingId : b.title);
+  const filtered = Boolean(status || debounced || source !== "all");
+
   return (
     <div className="h-full overflow-y-auto">
-      <div className="px-4 py-6 lg:px-8">
-        <h1 className="text-2xl font-semibold tracking-[-0.01em] text-text">All bookings</h1>
-        <p className="mt-1 text-sm text-muted">Every booking from your chats and Excel uploads in this browser, most recently active first.</p>
+      <div className="mx-auto max-w-6xl px-4 py-6 lg:px-8 lg:py-8">
+        <PageHeader
+          title="All bookings"
+          description="Every booking from your chats and Excel uploads in this browser, most recently active first."
+          actions={
+            <Link href="/chat?new=bookings" className="inline-flex h-9 items-center rounded-lg bg-primary px-3.5 text-sm font-medium text-on-primary hover:bg-primary-hover">
+              New booking
+            </Link>
+          }
+        />
 
-        <div className="mt-5 flex flex-wrap items-center gap-2">
-          <div role="group" aria-label="Source" className="inline-flex rounded-lg bg-raised p-0.5">
-            {(["all", "chat", "excel"] as Source[]).map((s) => (
+        <div className="mt-6 flex flex-wrap items-center gap-2">
+          <div role="group" aria-label="Status" className="flex flex-wrap gap-1.5">
+            {["", ...STATUSES].map((s) => (
               <button
-                key={s}
+                key={s || "all"}
                 type="button"
-                aria-pressed={source === s}
-                onClick={() => setSource(s)}
-                className={cx("h-8 rounded-md px-3 text-[13px] font-medium", source === s ? "border border-border bg-sheet text-text" : "border border-transparent text-muted hover:text-text")}
-                data-testid={`source-${s}`}
+                aria-pressed={status === s}
+                onClick={() => setStatus(s)}
+                className={cx("h-8 rounded-full px-3 text-small font-medium transition-colors", status === s ? "bg-primary text-on-primary" : "bg-raised text-muted hover:bg-active hover:text-text")}
               >
-                {s === "all" ? "All" : s === "chat" ? "Chats" : "Excel imports"}
+                {s || "All"}
               </button>
             ))}
           </div>
-          <label className="text-[13px] text-muted">
-            <span className="sr-only">Status</span>
-            <select name="status" value={status} onChange={(e) => setStatus(e.target.value)} className="h-9 rounded-lg border border-control bg-sheet px-2.5 text-[13px] text-text">
-              <option value="">Any status</option>
-              {STATUSES.map((s) => (
-                <option key={s}>{s}</option>
-              ))}
-            </select>
-          </label>
           <label className="ml-auto block w-full sm:w-72">
             <span className="sr-only">Search bookings</span>
-            <input name="q" type="search" autoComplete="off" spellCheck={false} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search route, seller or booking ID…" className="h-9 w-full rounded-lg border border-control bg-sheet px-3 text-[13px] placeholder:text-faint" />
+            <input name="q" type="search" autoComplete="off" spellCheck={false} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search route, seller or booking ID…" className="h-9 w-full rounded-lg border border-control bg-sheet px-3 text-small placeholder:text-faint" />
           </label>
+        </div>
+        <div role="group" aria-label="Source" className="mt-3 inline-flex rounded-lg bg-raised p-0.5">
+          {(["all", "chat", "excel"] as Source[]).map((s) => (
+            <button
+              key={s}
+              type="button"
+              aria-pressed={source === s}
+              onClick={() => setSource(s)}
+              className={cx("h-7 rounded-md px-3 text-small font-medium", source === s ? "bg-sheet text-text" : "text-muted hover:text-text")}
+              data-testid={`source-${s}`}
+            >
+              {s === "all" ? "Any source" : s === "chat" ? "Chats" : "Excel imports"}
+            </button>
+          ))}
         </div>
 
         {error ? (
@@ -127,86 +145,87 @@ export function BookingsHistory() {
             <Skeleton className="h-12" />
           </div>
         ) : items.length === 0 ? (
-          <div className="mt-4 rounded-lg border border-dashed border-control px-4 py-5 text-[13px] text-muted">
-            {source === "all" && !status && !debounced ? (
-              <>
-                Nothing here yet. <Link href="/chat" className="font-medium text-accent">Start a chat</Link> or <Link href="/upload" className="font-medium text-accent">upload a workbook</Link>.
-              </>
+          <div className="mt-6">
+            {!filtered ? (
+              <EmptyState
+                title="No bookings yet"
+                actions={
+                  <>
+                    <Link href="/chat?new=bookings" className="inline-flex h-9 items-center rounded-lg bg-primary px-3.5 text-sm font-medium text-on-primary hover:bg-primary-hover">
+                      Describe a shipment
+                    </Link>
+                    <Link href="/upload" className="inline-flex h-9 items-center rounded-lg border border-control bg-sheet px-3.5 text-sm font-medium text-text hover:bg-raised">
+                      Upload a spreadsheet
+                    </Link>
+                  </>
+                }
+              >
+                Bookings from chats and Excel uploads show up here.
+              </EmptyState>
             ) : (
-              "No bookings match these filters."
+              <EmptyState title="No bookings match these filters">Try a different status or clear the search.</EmptyState>
             )}
           </div>
         ) : (
-          <div className="mt-3">
-            {/* Phone: two-line rows (identity + status, then the other fields) */}
+          <div className="mt-4">
+            {/* Phone: two-line rows (identity + status, then route and activity) */}
             <ul className="divide-y divide-rule sm:hidden" aria-label="Bookings">
-              {items.map((b) => {
-                const inner = (
-                  <>
+              {items.map((b) => (
+                <li key={b.id}>
+                  <Link href={`/bookings/${b.id}`} className="block py-3">
                     <span className="flex items-start justify-between gap-2">
-                      <span className="min-w-0 truncate font-medium text-text">{b.title}</span>
+                      <span className="min-w-0 truncate text-small font-medium text-text">{name(b)}</span>
                       <StatusPill status={b.status} />
                     </span>
-                    <span className="num mt-0.5 block truncate text-[12px] text-muted">
-                      {b.source === "chat" ? "Chat" : "Excel"} · {b.sellerName ?? "Seller not given"} · {b.redCount} Red · {b.amberCount} Amber · {relativeTime(b.lastActivityAt)}
+                    <span className="num mt-0.5 block truncate text-caption text-muted">
+                      {route(b)} · {b.pallets != null ? `${b.pallets} pallets · ` : ""}
+                      {relativeTime(b.lastActivityAt)}
                     </span>
-                  </>
-                );
-                return (
-                  <li key={b.id} className="py-2.5">
-                    {b.source === "chat" ? (
-                      <Link href={`/chat/${b.id}`} className="block">
-                        {inner}
-                      </Link>
-                    ) : (
-                      <button type="button" className="block w-full text-left" onClick={() => setOpen(b.id)}>
-                        {inner}
-                      </button>
-                    )}
-                  </li>
-                );
-              })}
+                  </Link>
+                </li>
+              ))}
             </ul>
             <div className="hidden overflow-x-auto sm:block">
-            <table className="w-full min-w-[680px] text-[13px]" data-testid="bookings-table">
-              <thead>
-                <tr className="text-left text-[12px] text-muted">
-                  <th className="py-2 pr-3 font-normal">Booking</th>
-                  <th className="py-2 pr-3 font-normal">Source</th>
-                  <th className="py-2 pr-3 font-normal">Status</th>
-                  <th className="py-2 pr-3 text-right font-normal">Red</th>
-                  <th className="py-2 pr-3 text-right font-normal">Amber</th>
-                  <th className="py-2 text-right font-normal">Last activity</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((b) => (
-                  <tr key={b.id} className="border-t border-rule hover:bg-raised" data-testid="booking-row" data-source={b.source}>
-                    <td className="py-2.5 pr-3">
-                      {b.source === "chat" ? (
-                        <Link href={`/chat/${b.id}`} className="font-medium text-text hover:underline">
-                          {b.title}
-                        </Link>
-                      ) : (
-                        <button type="button" onClick={() => setOpen(b.id)} className="text-left font-medium text-text hover:underline">
-                          {b.title}
-                        </button>
-                      )}
-                      <span className="block text-[12px] text-muted">{b.sellerName ?? "Seller not given yet"}</span>
-                    </td>
-                    <td className="py-2.5 pr-3 text-muted">{b.source === "chat" ? "Chat" : "Excel import"}</td>
-                    <td className="py-2.5 pr-3">
-                      <StatusPill status={b.status} />
-                    </td>
-                    <td className={cx("num py-2.5 pr-3 text-right", b.redCount ? "font-medium text-red-ink" : "text-muted")}>{b.redCount}</td>
-                    <td className={cx("num py-2.5 pr-3 text-right", b.amberCount ? "font-medium text-amber-ink" : "text-muted")}>{b.amberCount}</td>
-                    <td className="py-2.5 text-right text-muted">
-                      <time dateTime={b.lastActivityAt}>{relativeTime(b.lastActivityAt)}</time>
-                    </td>
+              <table className="w-full min-w-[760px] text-small" data-testid="bookings-table">
+                <thead>
+                  <tr className="text-left text-caption text-muted">
+                    <th className="py-2 pr-3 font-medium">Booking</th>
+                    <th className="py-2 pr-3 font-medium">Route</th>
+                    <th className="py-2 pr-3 text-right font-medium">Pallets</th>
+                    <th className="py-2 pr-3 font-medium">Status</th>
+                    <th className="py-2 pr-3 font-medium">Ready</th>
+                    <th className="py-2 text-right font-medium">Updated</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {items.map((b) => (
+                    <tr key={b.id} className="relative border-t border-rule hover:bg-raised" data-testid="booking-row" data-source={b.source}>
+                      <td className="py-3 pr-3">
+                        <Link href={`/bookings/${b.id}`} className="font-medium text-text after:absolute after:inset-0 hover:underline">
+                          {name(b)}
+                        </Link>
+                        <span className="block text-caption text-muted">
+                          {b.sellerName ?? "Seller not given yet"} · {b.source === "chat" ? "Chat" : "Excel"}
+                        </span>
+                      </td>
+                      <td className="py-3 pr-3 text-text">{route(b)}</td>
+                      <td className="num py-3 pr-3 text-right text-text">{b.pallets ?? "—"}</td>
+                      <td className="py-3 pr-3">
+                        <StatusPill status={b.status} />
+                        {(b.redCount > 0 || b.amberCount > 0) && (
+                          <span className="num mt-1 block text-caption text-muted">
+                            {b.redCount} to fix · {b.amberCount} to check
+                          </span>
+                        )}
+                      </td>
+                      <td className="num py-3 pr-3 text-text">{b.readyToShipDate ? formatUK(b.readyToShipDate) : "—"}</td>
+                      <td className="py-3 text-right text-muted">
+                        <time dateTime={b.lastActivityAt}>{relativeTime(b.lastActivityAt)}</time>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
             {cursor && (
               <div className="mt-3">
@@ -218,9 +237,6 @@ export function BookingsHistory() {
           </div>
         )}
       </div>
-      <Drawer open={Boolean(open)} onClose={() => setOpen(null)} label="Booking details">
-        {open && <BookingDetail bookingId={open} onClose={() => setOpen(null)} />}
-      </Drawer>
     </div>
   );
 }

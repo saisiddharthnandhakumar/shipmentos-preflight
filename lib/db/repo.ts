@@ -221,6 +221,10 @@ export type BookingListItem = {
   importBatchId: string | null;
   sellerName: string | null;
   destinationCountry: string | null;
+  originCity: string | null;
+  destinationCity: string | null;
+  pallets: number | null;
+  readyToShipDate: string | null;
   lastActivityAt: string;
   createdAt: string;
 };
@@ -238,6 +242,10 @@ const listColumns = {
   importBatchId: bookings.importBatchId,
   sellerName: bookings.sellerName,
   destinationCountry: bookings.destinationCountry,
+  originCity: bookings.originCity,
+  destinationCity: bookings.destinationCity,
+  pallets: bookings.pallets,
+  readyToShipDate: bookings.readyToShipDate,
   lastActivityAt: bookings.lastActivityAt,
   createdAt: bookings.createdAt,
 };

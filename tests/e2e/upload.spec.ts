@@ -12,7 +12,8 @@ test("upload planted-error workbook without any chat; open a failed booking", as
 
   await page.getByTestId("upload-search").fill("BK-212");
   await expect(page.getByTestId("result-row")).toHaveCount(1);
-  await page.getByRole("button", { name: "Open details for BK-212" }).click();
+  await page.getByRole("link", { name: "Open details for BK-212" }).click();
+  await expect(page).toHaveURL(/\/bookings\/[0-9a-f-]{36}$/);
   const detail = page.getByTestId("booking-detail");
   await expect(detail).toContainText("Blocked — 2 Red, 1 Amber");
   await expect(detail.locator('[data-rule="R-01"]')).toContainText("SKU X-04: HS code 6912 has only 4 digits.");
@@ -21,7 +22,7 @@ test("upload planted-error workbook without any chat; open a failed booking", as
   await expect(detail.getByTestId("carrier-panel")).toContainText("tentative");
 
   // Status filter + reopen after refresh without re-uploading
-  await page.getByRole("button", { name: "Close booking details" }).click();
+  await page.goBack();
   await page.getByTestId("upload-search").fill("");
   await page.getByRole("button", { name: /Needs attention/ }).click();
   await expect(page.getByTestId("result-row")).toHaveCount(4);

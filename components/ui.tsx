@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useId, useRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 
 export function cx(...xs: (string | false | null | undefined)[]) {
@@ -18,7 +19,7 @@ export function Button({
       {...rest}
       className={cx(
         "inline-flex flex-none items-center justify-center gap-1.5 rounded-lg font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-55",
-        size === "sm" ? "h-8 px-3 text-[13px]" : "h-9 px-3.5 text-sm",
+        size === "sm" ? "h-8 px-3 text-small" : "h-9 px-3.5 text-sm",
         variant === "primary" && "bg-primary text-on-primary hover:bg-primary-hover",
         variant === "secondary" && "border border-control bg-sheet text-text hover:bg-raised",
         variant === "ghost" && "text-muted hover:bg-active hover:text-text",
@@ -55,7 +56,7 @@ const STATUS_STYLE: Record<string, { cls: string; glyph: GlyphKind }> = {
 export function StatusPill({ status, className }: { status: string; className?: string }) {
   const s = STATUS_STYLE[status] ?? STATUS_STYLE.Draft;
   return (
-    <span className={cx("inline-flex h-6 flex-none items-center gap-1 rounded-full px-2.5 text-xs font-medium whitespace-nowrap", s.cls, className)}>
+    <span className={cx("inline-flex h-6 flex-none items-center gap-1 rounded-full px-2.5 text-caption font-medium whitespace-nowrap", s.cls, className)}>
       <Glyph kind={s.glyph} />
       {status}
     </span>
@@ -71,15 +72,15 @@ export function ruleState(r: { status: string; severity: string }): RuleState {
 
 const RULE_STYLE: Record<RuleState, { cls: string; label: string }> = {
   pass: { cls: "bg-pass-bg text-pass-ink", label: "Pass" },
-  red: { cls: "bg-red-bg text-red-ink", label: "Red" },
-  amber: { cls: "bg-amber-bg text-amber-ink", label: "Amber" },
+  red: { cls: "bg-red-bg text-red-ink", label: "Must fix" },
+  amber: { cls: "bg-amber-bg text-amber-ink", label: "Check" },
   na: { cls: "bg-na-bg text-na-ink", label: "Not evaluable" },
 };
 
 export function RuleChip({ state, className }: { state: RuleState; className?: string }) {
   const s = RULE_STYLE[state];
   return (
-    <span className={cx("inline-flex h-5 flex-none items-center gap-1 rounded-full px-2 text-[11px] font-medium whitespace-nowrap", s.cls, className)}>
+    <span className={cx("inline-flex h-5 flex-none items-center gap-1 rounded-full px-2 text-caption font-medium whitespace-nowrap", s.cls, className)}>
       <Glyph kind={state} className="size-2" />
       {s.label}
     </span>
@@ -88,7 +89,7 @@ export function RuleChip({ state, className }: { state: RuleState; className?: s
 
 export function SeverityTag({ severity }: { severity: "Red" | "Amber" }) {
   return (
-    <span className={cx("font-mono text-[11px] font-medium", severity === "Red" ? "text-red-ink" : "text-amber-ink")}>{severity.toUpperCase()}</span>
+    <span className={cx("font-mono text-caption font-medium", severity === "Red" ? "text-red-ink" : "text-amber-ink")}>{severity === "Red" ? "Must fix" : "Check"}</span>
   );
 }
 
@@ -102,7 +103,7 @@ export function Card({ title, action, children, className, id }: { title?: React
     <section aria-labelledby={title ? hid : undefined} id={id} className={cx("rounded-xl border border-border bg-sheet", className)}>
       {title && (
         <header className="flex min-h-11 items-center justify-between gap-3 px-4 pt-3">
-          <h3 id={hid} className="text-[13px] font-semibold text-text">
+          <h3 id={hid} className="text-small font-semibold text-text">
             {title}
           </h3>
           {action}
@@ -203,7 +204,7 @@ export function Notice({ tone = "info", children, action }: { tone?: "info" | "e
     <div
       role={tone === "error" ? "alert" : "status"}
       className={cx(
-        "flex items-start justify-between gap-3 rounded-lg border px-3 py-2 text-[13px]",
+        "flex items-start justify-between gap-3 rounded-lg border px-3 py-2 text-small",
         tone === "error" && "border-red-line bg-red-bg text-red-ink",
         tone === "warn" && "border-amber-line bg-amber-bg text-amber-ink",
         tone === "info" && "border-border bg-raised text-muted",
@@ -226,4 +227,69 @@ export function relativeTime(iso: string, now = Date.now()): string {
   if (d === 1) return "Yesterday";
   if (d < 7) return `${d} days ago`;
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
+/** One title per page. The description is a single sentence; the primary action sits at the right. */
+export function PageHeader({ title, description, actions, id }: { title: ReactNode; description?: ReactNode; actions?: ReactNode; id?: string }) {
+  return (
+    <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+      <div className="min-w-0">
+        <h1 id={id} className="text-title text-text">
+          {title}
+        </h1>
+        {description && <p className="mt-1 max-w-[62ch] text-sm text-muted">{description}</p>}
+      </div>
+      {actions && <div className="flex flex-none flex-wrap items-center gap-2">{actions}</div>}
+    </header>
+  );
+}
+
+export function SectionHeading({ children, action, id }: { children: ReactNode; action?: ReactNode; id?: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <h2 id={id} className="text-heading text-text">
+        {children}
+      </h2>
+      {action}
+    </div>
+  );
+}
+
+const STAT_TONE: Record<string, string> = {
+  red: "text-red-ink",
+  amber: "text-amber-ink",
+  pass: "text-pass-ink",
+  na: "text-text",
+};
+
+/** A count you can act on: the figure is the biggest thing on the card, the label says what it is. */
+export function Stat({ label, value, tone = "na", glyph, href, hint }: { label: string; value: number | string; tone?: "red" | "amber" | "pass" | "na"; glyph?: GlyphKind; href?: string; hint?: string }) {
+  const body = (
+    <>
+      <span className="flex items-center gap-1.5 text-small text-muted">
+        {glyph && <Glyph kind={glyph} className={STAT_TONE[tone]} />}
+        {label}
+      </span>
+      <span className={cx("num mt-2 block text-figure", STAT_TONE[tone])}>{value}</span>
+      {hint && <span className="mt-1 block text-caption text-muted">{hint}</span>}
+    </>
+  );
+  const cls = "block rounded-xl border border-border bg-sheet p-4";
+  return href ? (
+    <Link href={href} className={cx(cls, "transition-colors hover:bg-raised")}>
+      {body}
+    </Link>
+  ) : (
+    <div className={cls}>{body}</div>
+  );
+}
+
+export function EmptyState({ title, children, actions }: { title: ReactNode; children?: ReactNode; actions?: ReactNode }) {
+  return (
+    <div className="rounded-xl bg-raised px-6 py-10 text-center">
+      <h2 className="text-heading text-text">{title}</h2>
+      {children && <p className="mx-auto mt-1.5 max-w-[48ch] text-sm text-muted">{children}</p>}
+      {actions && <div className="mt-5 flex flex-wrap items-center justify-center gap-2">{actions}</div>}
+    </div>
+  );
 }
