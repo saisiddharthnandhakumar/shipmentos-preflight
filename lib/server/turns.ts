@@ -11,6 +11,7 @@ import {
   type StoredMessage,
 } from "../db/repo";
 import { todayUK } from "../domain/dates";
+import { missingFields } from "../domain/missing";
 import { applyPatch, type Change } from "../domain/patch";
 import { composeReply, statusLine } from "../domain/reply";
 import type { ChatPatch, PatchOp } from "../domain/schemas";
@@ -69,7 +70,27 @@ export async function runTurn(input: TurnInput): Promise<TurnResponse> {
     patch = { operations: input.operations };
   }
 
-  const { draft: after, changes, warnings } = applyPatch(before, patch.operations, { todayUK: today, newId: () => crypto.randomUUID() });
+  const newId = () => crypto.randomUUID();
+  let { draft: after, changes, warnings } = applyPatch(before, patch.operations, { todayUK: today, newId });
+
+  // Dense messages: a focused second extraction pass for fields still unknown (recall, not guessing).
+  if (input.kind === "chat" && patch.operations.length >= 3 && input.message.length > 80) {
+    const still = missingFields(after);
+    if (still.length) {
+      try {
+        const second = await getExtractor()({ message: input.message, draft: after, recentMessages: [], focusFields: still.map((m) => m.label) });
+        if (second.operations.length) {
+          const r2 = applyPatch(after, second.operations, { todayUK: today, newId });
+          after = r2.draft;
+          changes = [...changes, ...r2.changes];
+          warnings = [...warnings, ...r2.warnings];
+          patch = { ...patch, operations: [...patch.operations, ...second.operations] };
+        }
+      } catch {
+        // The first pass stands; the reply simply asks for what is still missing.
+      }
+    }
+  }
   const evaluation = await evaluateDraft(db, after);
 
   let messages: { role: "user" | "assistant" | "event"; content: string; meta?: unknown }[];

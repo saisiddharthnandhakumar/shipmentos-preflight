@@ -9,7 +9,8 @@ import type { Extractor } from "./extract";
 const WORDS: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
 const num = (s: string) => WORDS[s.toLowerCase()] ?? Number(s.replace(/,/g, ""));
 
-export const fakeExtractor: Extractor = async ({ message, draft }) => {
+export const fakeExtractor: Extractor = async ({ message, draft, focusFields }) => {
+  if (focusFields?.length) return { operations: [] };
   const m = message;
   const lower = m.toLowerCase();
   const ops: PatchOp[] = [];

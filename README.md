@@ -67,6 +67,7 @@ Edit booking form still works; Excel upload never needs AI.
 | `DATABASE_URL_UNPOOLED` | Neon **direct** connection string (migrations and seeds only) |
 | `GEMINI_API_KEY` | Gemini API key (chat extraction only) |
 | `GEMINI_MODEL` | Optional; default `gemini-3.5-flash` (verified 2026-10-25; `gemini-2.5-flash` is closed to new API users) |
+| `GEMINI_THINKING` | Optional; `low` (default), `minimal` or `medium` model thinking for extraction |
 | `SESSION_TTL_DAYS` | Optional; anonymous session lifetime, default 7 |
 | `SHIPMENTOS_FAKE_AI` | Tests only: `1` swaps Gemini for a deterministic extractor. Ignored on Vercel. |
 
@@ -127,4 +128,6 @@ Migrations are never run automatically at runtime. Schema details: `docs/DB_SCHE
 - Indicative delivery = collection + transit in calendar days; real carrier schedules are not consulted.
 - Rate limiting is in-memory per server instance (best-effort on serverless).
 - History is per browser; there is no cross-device recovery.
+- Gemini can occasionally miss a fact in a very dense message even with the focused second pass; ShipmentOS
+  never guesses it — the deterministic follow-up question simply asks for it.
 - Uploads are capped at 4 MB (Vercel's 4.5 MB request limit), 2,000 bookings and 10,000 item rows.

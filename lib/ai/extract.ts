@@ -11,6 +11,8 @@ export type ExtractInput = {
   message: string;
   draft: DraftBooking;
   recentMessages: { role: "user" | "assistant" | "event"; content: string }[];
+  /** Second pass: labels of fields still unknown after the first extraction of this same message. */
+  focusFields?: string[];
 };
 export type Extractor = (input: ExtractInput) => Promise<ChatPatch>;
 
@@ -45,6 +47,10 @@ Numeric fields N: pallets, cartons, totalDeclaredValueGBP, totalGrossWeightKg.
 Item fields: sku, description, hsCode, quantityUnits, unitPriceGBP, unitsPerCarton, cartons (cartons of THIS item), unitWeightKg, countryOfOrigin.
 
 Rules:
+0. Extract EVERY fact in the message. Sellers often pack 10+ facts into one message (seller, SKU, quantity, cartons, units per carton,
+   unit price, unit weight, HS code, origin, gross weight, declared value, total cartons, appointment): emit an operation for each one.
+   "90 cartons of 12" means item cartons 90 and unitsPerCarton 12. "£5 each" is unitPriceGBP; "0.5 kg each" is unitWeightKg.
+   "N cartons in total/overall" is the booking-level cartons field.
 1. Only extract facts the seller actually stated in THIS message (use the recent conversation to resolve short answers like "yes", "12", "Northfield").
 2. NEVER invent or estimate values (no guessed HS codes, weights, prices, quantities, dates or seller names). Never compute totals.
 3. Relative changes MUST use increment/incrementItem with the stated delta, never set.
@@ -143,7 +149,9 @@ const minimalUnsupported = new Set<string>();
 
 /** MINIMAL where the model accepts it (fastest); models that reject it fall back to LOW. */
 function thinkingLevelFor(model: string): ThinkingLevel {
-  return minimalUnsupported.has(model) ? ThinkingLevel.LOW : ThinkingLevel.MINIMAL;
+  const wanted = (process.env.GEMINI_THINKING ?? "low").toUpperCase();
+  if (wanted === "MINIMAL" && !minimalUnsupported.has(model)) return ThinkingLevel.MINIMAL;
+  return wanted === "MEDIUM" ? ThinkingLevel.MEDIUM : ThinkingLevel.LOW;
 }
 
 export const geminiExtractor: Extractor = async (input) => {
@@ -155,7 +163,10 @@ export const geminiExtractor: Extractor = async (input) => {
     .slice(-6)
     .map((m) => `${m.role === "user" ? "Seller" : m.role === "assistant" ? "Assistant" : "Event"}: ${m.content.slice(0, 600)}`)
     .join("\n");
-  const prompt = `Current booking draft (JSON, null = unknown, "" = seller confirmed blank):\n${JSON.stringify(compactDraft(input.draft))}\n\nRecent conversation:\n${context || "(none)"}\n\nNew seller message:\n${input.message}`;
+  const focus = input.focusFields?.length
+    ? `\n\nSECOND PASS. The draft above already includes what was extracted from this message. These fields are STILL unknown: ${input.focusFields.join("; ")}. If the seller's message states any of them, return operations for those fields only. If it doesn't, return {"operations": []}. Never guess.`
+    : "";
+  const prompt = `Current booking draft (JSON, null = unknown, "" = seller confirmed blank):\n${JSON.stringify(compactDraft(input.draft))}\n\nRecent conversation:\n${context || "(none)"}\n\nNew seller message:\n${input.message}${focus}`;
 
   let lastError = "";
   for (let attempt = 0; attempt < 2; attempt++) {
