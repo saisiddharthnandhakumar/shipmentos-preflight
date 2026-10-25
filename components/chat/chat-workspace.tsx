@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api, ApiClientError, newRequestId } from "@/lib/client/api";
 import type { BookingSnapshot, MessagesResponse, PatchOp, StoredMessage, TurnResponse } from "@/lib/client/types";
 import { draftReferenceOf } from "@/lib/client/reference";
+import { RULE_DEFINITIONS } from "@/lib/domain/reference";
 import { useHistory } from "../shell/history-context";
 import { CarrierPanel, Collapsible, FactsList, ItemsTable, NextSteps, PreflightStrip, RuleChecklist, StatusSummary } from "../booking/parts";
 import { Button, Notice, Skeleton, cx } from "../ui";
@@ -253,7 +254,7 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
                   </Button>
                 </div>
               )}
-              <ol className="space-y-4" data-testid="transcript">
+              <ol className="space-y-4" data-testid="transcript" aria-live="polite" aria-relevant="additions">
                 {messages.map((m) => (
                   <MessageBubble key={m.id} m={m} />
                 ))}
@@ -297,6 +298,8 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
               </label>
               <textarea
                 id="composer"
+                name="message"
+                autoComplete="off"
                 ref={composer}
                 value={text}
                 onChange={(e) => setText(e.target.value.slice(0, 2000))}
@@ -307,7 +310,7 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
                   }
                 }}
                 rows={1}
-                placeholder={evaluation?.status === "Draft" || !evaluation ? "Describe your shipment or answer the question…" : "Change anything — e.g. “add one more pallet”"}
+                placeholder={evaluation?.status === "Draft" || !evaluation ? "Describe your shipment…" : "Change anything, e.g. “add one more pallet”…"}
                 className="max-h-40 min-h-11 flex-1 resize-none rounded-xl border border-control bg-white px-3.5 py-2.5 text-[14px] leading-6 placeholder:text-faint"
                 disabled={loadState === "loading" || loadState === "error" || !history.sessionReady}
                 data-testid="composer"
@@ -337,7 +340,20 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
                   <Skeleton className="h-48" />
                 </div>
               ) : (
-                <p className="mt-2 text-[13px] text-muted">Nothing yet. As you describe the shipment, the details, missing fields, checks and carrier appear here.</p>
+                <div className="mt-2" data-testid="panel-empty">
+                  <p className="text-[13px] text-muted">As you describe the shipment, its details, what&apos;s missing, the checks and the carrier appear here.</p>
+                  <h3 className="mt-5 text-[13px] font-semibold text-text">What every booking is checked against</h3>
+                  <ul className="mt-2 divide-y divide-rule">
+                    {RULE_DEFINITIONS.map((r) => (
+                      <li key={r.ruleId} className="flex items-start gap-2 py-2">
+                        <span className="w-10 flex-none pt-px font-mono text-[12px] text-muted">{r.ruleId}</span>
+                        <span className="min-w-0 flex-1 text-[13px] text-text">{r.description}</span>
+                        <span className={cx("flex-none pt-px text-[11px] font-medium", r.severity === "Red" ? "text-red-ink" : "text-amber-ink")}>{r.severity}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-3 text-[12px] text-muted">Red stops the shipment until fixed; Amber should be checked. Carriers A, B and C are ranked by your priority after a weight-per-pallet check.</p>
+                </div>
               )
             ) : (
               <div className="mt-3 space-y-4">
@@ -478,7 +494,7 @@ function MessageBubble({ m }: { m: StoredMessage }) {
   if (m.role === "user")
     return (
       <li className="flex justify-end" data-role="user">
-        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-active px-3.5 py-2 text-[14px] leading-6 whitespace-pre-wrap text-text">{m.content}</div>
+        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-active px-3.5 py-2 text-[14px] leading-6 break-words whitespace-pre-wrap text-text">{m.content}</div>
       </li>
     );
   return (
@@ -486,7 +502,7 @@ function MessageBubble({ m }: { m: StoredMessage }) {
       <span aria-hidden className="mt-1 grid size-6 flex-none place-items-center rounded-md bg-accent-soft text-[10px] font-semibold text-accent">
         S
       </span>
-      <div className="min-w-0 flex-1 text-[14px] leading-6 whitespace-pre-wrap text-text">{m.content}</div>
+      <div className="min-w-0 flex-1 text-[14px] leading-6 break-words whitespace-pre-wrap text-text">{m.content}</div>
     </li>
   );
 }

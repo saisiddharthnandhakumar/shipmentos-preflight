@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiClientError } from "@/lib/client/api";
 import type { BookingListItem } from "@/lib/client/types";
@@ -11,18 +12,34 @@ type Source = "all" | "chat" | "excel";
 const STATUSES = ["Draft", "Blocked", "Needs attention", "Ready to submit"] as const;
 
 export function BookingsHistory() {
-  const [source, setSource] = useState<Source>("all");
-  const [status, setStatus] = useState<string>("");
-  const [q, setQ] = useState("");
-  const [debounced, setDebounced] = useState("");
+  // Filters live in the URL so a filtered view can be refreshed or shared within this browser.
+  const params = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const source: Source = params.get("source") === "chat" || params.get("source") === "excel" ? (params.get("source") as Source) : "all";
+  const status = (STATUSES as readonly string[]).includes(params.get("status") ?? "") ? params.get("status")! : "";
+  const debounced = params.get("q") ?? "";
+  const [q, setQ] = useState(debounced);
+  const setParam = useCallback(
+    (key: string, value: string) => {
+      const next = new URLSearchParams(params.toString());
+      if (value && value !== "all") next.set(key, value);
+      else next.delete(key);
+      router.replace(`${pathname}${next.size ? `?${next}` : ""}`, { scroll: false });
+    },
+    [params, pathname, router],
+  );
+  const setSource = (s: Source) => setParam("source", s);
+  const setStatus = (s: string) => setParam("status", s);
   const [result, setResult] = useState<{ key: string; items: BookingListItem[]; cursor: string | null; error: string | null } | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
 
   useEffect(() => {
-    const t = setTimeout(() => setDebounced(q.trim()), 250);
+    if (q.trim() === debounced) return;
+    const t = setTimeout(() => setParam("q", q.trim()), 250);
     return () => clearTimeout(t);
-  }, [q]);
+  }, [q, debounced, setParam]);
 
   const query = useCallback(
     (c?: string | null) => {
@@ -77,7 +94,7 @@ export function BookingsHistory() {
                 type="button"
                 aria-pressed={source === s}
                 onClick={() => setSource(s)}
-                className={cx("h-8 rounded-md px-3 text-[13px] font-medium", source === s ? "bg-white text-text shadow-[0_0_0_1px_var(--border)]" : "text-muted hover:text-text")}
+                className={cx("h-8 rounded-md px-3 text-[13px] font-medium", source === s ? "border border-border bg-white text-text" : "border border-transparent text-muted hover:text-text")}
                 data-testid={`source-${s}`}
               >
                 {s === "all" ? "All" : s === "chat" ? "Chats" : "Excel imports"}
@@ -86,7 +103,7 @@ export function BookingsHistory() {
           </div>
           <label className="text-[13px] text-muted">
             <span className="sr-only">Status</span>
-            <select value={status} onChange={(e) => setStatus(e.target.value)} className="h-9 rounded-lg border border-control bg-white px-2.5 text-[13px] text-text">
+            <select name="status" value={status} onChange={(e) => setStatus(e.target.value)} className="h-9 rounded-lg border border-control bg-white px-2.5 text-[13px] text-text">
               <option value="">Any status</option>
               {STATUSES.map((s) => (
                 <option key={s}>{s}</option>
@@ -95,7 +112,7 @@ export function BookingsHistory() {
           </label>
           <label className="ml-auto block w-full sm:w-72">
             <span className="sr-only">Search bookings</span>
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search route, seller or booking ID" className="h-9 w-full rounded-lg border border-control bg-white px-3 text-[13px] placeholder:text-faint" />
+            <input name="q" type="search" autoComplete="off" spellCheck={false} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search route, seller or booking ID…" className="h-9 w-full rounded-lg border border-control bg-white px-3 text-[13px] placeholder:text-faint" />
           </label>
         </div>
 
@@ -120,7 +137,37 @@ export function BookingsHistory() {
             )}
           </div>
         ) : (
-          <div className="mt-3 overflow-x-auto">
+          <div className="mt-3">
+            {/* Phone: two-line rows (identity + status, then the other fields) */}
+            <ul className="divide-y divide-rule sm:hidden" aria-label="Bookings">
+              {items.map((b) => {
+                const inner = (
+                  <>
+                    <span className="flex items-start justify-between gap-2">
+                      <span className="min-w-0 truncate font-medium text-text">{b.title}</span>
+                      <StatusPill status={b.status} />
+                    </span>
+                    <span className="num mt-0.5 block truncate text-[12px] text-muted">
+                      {b.source === "chat" ? "Chat" : "Excel"} · {b.sellerName ?? "Seller not given"} · {b.redCount} Red · {b.amberCount} Amber · {relativeTime(b.lastActivityAt)}
+                    </span>
+                  </>
+                );
+                return (
+                  <li key={b.id} className="py-2.5">
+                    {b.source === "chat" ? (
+                      <Link href={`/chat/${b.id}`} className="block">
+                        {inner}
+                      </Link>
+                    ) : (
+                      <button type="button" className="block w-full text-left" onClick={() => setOpen(b.id)}>
+                        {inner}
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="hidden overflow-x-auto sm:block">
             <table className="w-full min-w-[680px] text-[13px]" data-testid="bookings-table">
               <thead>
                 <tr className="text-left text-[12px] text-muted">
@@ -160,6 +207,7 @@ export function BookingsHistory() {
                 ))}
               </tbody>
             </table>
+            </div>
             {cursor && (
               <div className="mt-3">
                 <Button size="sm" onClick={() => void more()} disabled={loadingMore}>

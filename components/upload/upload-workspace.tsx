@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiClientError } from "@/lib/client/api";
 import type { BookingListItem } from "@/lib/client/types";
@@ -44,7 +44,7 @@ export function UploadStart() {
   async function send(file: File) {
     setError(null);
     if (!/\.xlsx$/i.test(file.name)) return setError("Choose an .xlsx workbook (Excel 2007 or later).");
-    if (file.size > 5 * 1024 * 1024) return setError("That file is larger than 5 MB.");
+    if (file.size > 4 * 1024 * 1024) return setError("That file is larger than 4 MB.");
     setBusy(true);
     try {
       const form = new FormData();
@@ -88,7 +88,7 @@ export function UploadStart() {
             <path d="M13 13h14M13 18h14M13 23h9M20 28v-8m-3 3 3-3 3 3" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <p className="mt-3 text-[15px] font-medium text-text">{busy ? "Checking your bookings…" : "Drop your .xlsx here"}</p>
-          <p className="mt-1 text-[13px] text-muted">Up to 5 MB · 2,000 bookings · 10,000 item rows</p>
+          <p className="mt-1 text-[13px] text-muted">Up to 4 MB · 2,000 bookings · 10,000 item rows</p>
           <input
             ref={input}
             type="file"
@@ -153,7 +153,17 @@ type Filter = "all" | "Blocked" | "Needs attention" | "Ready to submit" | "issue
 export function UploadResults({ batchId }: { batchId: string }) {
   const [data, setData] = useState<BatchDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>("all");
+  const params = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const FILTERS: Filter[] = ["all", "Blocked", "Needs attention", "Ready to submit", "issues"];
+  const filter: Filter = FILTERS.includes(params.get("status") as Filter) ? (params.get("status") as Filter) : "all";
+  const setFilter = (f: Filter) => {
+    const next = new URLSearchParams(params.toString());
+    if (f === "all") next.delete("status");
+    else next.set("status", f);
+    router.replace(`${pathname}${next.size ? `?${next}` : ""}`, { scroll: false });
+  };
   const [q, setQ] = useState("");
   const [open, setOpen] = useState<string | null>(null);
 
@@ -265,14 +275,39 @@ export function UploadResults({ batchId }: { batchId: string }) {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Search ID, seller, country, status"
+              name="q"
+              type="search"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="Search ID, seller, country, status…"
               className="h-9 w-full rounded-lg border border-control bg-white px-3 text-[13px] placeholder:text-faint"
               data-testid="upload-search"
             />
           </label>
         </div>
 
-        <div className="mt-2 overflow-x-auto">
+        <ul className="mt-2 divide-y divide-rule sm:hidden" aria-label="Bookings">
+          {rows.length === 0 ? (
+            <li className="py-4 text-center text-[13px] text-muted">No bookings match this filter.</li>
+          ) : (
+            rows.map((b) => (
+              <li key={b.id}>
+                <button type="button" className="block w-full py-2.5 text-left" onClick={() => setOpen(b.id)}>
+                  <span className="flex items-start justify-between gap-2">
+                    <span className="min-w-0 truncate text-[13px] text-text">
+                      <span className="font-mono">{b.externalBookingId ?? "—"}</span> {b.title.replace(/^[^·]*·\s*/, "")}
+                    </span>
+                    <StatusPill status={b.status} />
+                  </span>
+                  <span className="num mt-0.5 block truncate text-[12px] text-muted">
+                    {b.sellerName ?? "—"} · {b.redCount} Red · {b.amberCount} Amber{withIssues.has(b.id) ? " · input issue" : ""}
+                  </span>
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+        <div className="mt-2 hidden overflow-x-auto sm:block">
           <table className="w-full min-w-[720px] text-[13px]" data-testid="results-table">
             <thead>
               <tr className="text-left text-[12px] text-muted">

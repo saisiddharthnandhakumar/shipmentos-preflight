@@ -65,6 +65,18 @@ body {
   background: var(--frame);
   color: var(--text);
 }
+html {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+dialog {
+  overscroll-behavior: contain;
+}
 body {
   font-family: var(--font-sans);
   font-size: 14px;

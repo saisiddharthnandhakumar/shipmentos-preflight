@@ -49,7 +49,7 @@ Upload Excel ──► ExcelJS → column map → Zod ─┘
 - `All bookings` lists chat **and** Excel bookings. Excel bookings never get synthetic chat messages.
 
 ### 3.3 Upload Excel
-- Accept `.xlsx` ≤ 5 MB, ≤ 2,000 booking rows, ≤ 10,000 item rows.
+- Accept `.xlsx` ≤ 4 MB, ≤ 2,000 booking rows, ≤ 10,000 item rows.
 - Find `Bookings` and `Items` sheets by name; locate the header row by content (row 1 or 2+).
 - Skip the template's grey example row only when it exactly equals the instructional BK-001/MUG-01 example; report the skip.
 - Parse `DD-MM-YYYY` text and Excel date cells; HS code as number or text; keep original row numbers and raw values.

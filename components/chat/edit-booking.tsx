@@ -94,11 +94,11 @@ export function EditBookingDialog({ open, draft, onClose, onSubmit, busy, error 
   const field = (key: string, label: string, el?: React.ReactNode) => (
     <label className="block">
       <span className="mb-1 block text-[12px] font-medium text-muted">{label}</span>
-      {el ?? <input className={input} value={b[key] ?? ""} onChange={(e) => setB({ ...b, [key]: e.target.value })} />}
+      {el ?? <input name={key} autoComplete="off" inputMode={NUMERIC.has(key) ? "decimal" : undefined} className={input} value={b[key] ?? ""} onChange={(e) => setB({ ...b, [key]: e.target.value })} />}
     </label>
   );
   const select = (key: string, options: readonly string[]) => (
-    <select className={input} value={b[key] ?? ""} onChange={(e) => setB({ ...b, [key]: e.target.value })}>
+    <select name={key} className={input} value={b[key] ?? ""} onChange={(e) => setB({ ...b, [key]: e.target.value })}>
       <option value="">—</option>
       {options.map((o) => (
         <option key={o}>{o}</option>
@@ -138,7 +138,7 @@ export function EditBookingDialog({ open, draft, onClose, onSubmit, busy, error 
             {field("originCity", "Collect from", select("originCity", ORIGIN_CITIES))}
             {field("destinationCity", "Deliver to", select("destinationCity", allCities))}
             {field("destinationType", "Destination type", select("destinationType", DESTINATION_TYPES))}
-            {field("readyToShipDate", "Ready to ship", <input type="date" className={input} value={b.readyToShipDate ?? ""} onChange={(e) => setB({ ...b, readyToShipDate: e.target.value })} />)}
+            {field("readyToShipDate", "Ready to ship", <input type="date" name="readyToShipDate" className={input} value={b.readyToShipDate ?? ""} onChange={(e) => setB({ ...b, readyToShipDate: e.target.value })} />)}
             {field("sellerPriority", "Priority", select("sellerPriority", SELLER_PRIORITIES))}
             {field("pallets", "Pallets")}
             {field("cartons", "Total cartons")}
@@ -147,7 +147,7 @@ export function EditBookingDialog({ open, draft, onClose, onSubmit, busy, error 
             {field(
               "deliveryAppointmentBooked",
               "Delivery appointment",
-              <select className={input} value={b.deliveryAppointmentBooked ?? ""} onChange={(e) => setB({ ...b, deliveryAppointmentBooked: e.target.value })}>
+              <select name="deliveryAppointmentBooked" className={input} value={b.deliveryAppointmentBooked ?? ""} onChange={(e) => setB({ ...b, deliveryAppointmentBooked: e.target.value })}>
                 <option value="">—</option>
                 <option value="yes">Booked</option>
                 <option value="no">Not booked</option>
@@ -175,12 +175,12 @@ export function EditBookingDialog({ open, draft, onClose, onSubmit, busy, error 
                     ).map(([k, label]) => (
                       <label key={k} className="block">
                         <span className="mb-1 block text-[11px] text-muted">{label}</span>
-                        <input className={input} value={it[k]} onChange={(e) => setItems(items.map((x, i) => (i === idx ? { ...x, [k]: e.target.value } : x)))} />
+                        <input name={`items.${idx}.${k}`} autoComplete="off" spellCheck={k === "description"} inputMode={NUMERIC.has(k) ? "decimal" : undefined} className={input} value={it[k]} onChange={(e) => setItems(items.map((x, i) => (i === idx ? { ...x, [k]: e.target.value } : x)))} />
                       </label>
                     ))}
                     <label className="block">
                       <span className="mb-1 block text-[11px] text-muted">Country of origin</span>
-                      <select className={input} value={it.countryOfOrigin} onChange={(e) => setItems(items.map((x, i) => (i === idx ? { ...x, countryOfOrigin: e.target.value } : x)))}>
+                      <select name={`items.${idx}.countryOfOrigin`} className={input} value={it.countryOfOrigin} onChange={(e) => setItems(items.map((x, i) => (i === idx ? { ...x, countryOfOrigin: e.target.value } : x)))}>
                         <option value="">—</option>
                         {ITEM_ORIGIN_COUNTRIES.map((c) => (
                           <option key={c}>{c}</option>

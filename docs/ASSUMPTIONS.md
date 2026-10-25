@@ -52,7 +52,7 @@ Each item says where it comes from: **[PDF]** case PDF, **[XLSX]** test-data tem
 - [Decision] The example row is skipped only if every Bookings (or Items) cell equals the template example exactly; the skip is reported in the import summary.
 - [Decision] Duplicate Booking IDs: the first occurrence is imported and flagged Blocked with an input issue; later rows with the same ID are reported and not imported, because their items cannot be attributed unambiguously.
 - [Decision] Items whose Booking ID matches no booking are reported as orphan items. Bookings with no items are Blocked with an input issue (item rules are Not evaluable).
-- [Decision] Limits: 5 MB file, 2,000 bookings, 10,000 items, 200 items per booking.
+- [Decision] Limits: 4 MB file, 2,000 bookings, 10,000 items, 200 items per booking.
 
 ## Persistence, sessions, retention
 

@@ -509,7 +509,7 @@ export async function persistImport(
     const itemRows: (typeof bookingItems.$inferInsert)[] = [];
     const revisionRows: (typeof bookingRevisions.$inferInsert)[] = [];
     const evaluationRows: (typeof evaluations.$inferInsert)[] = [];
-    for (const r of records) {
+    for (const [idx, r] of records.entries()) {
       // Ids generated here so the whole batch is written with a few multi-row INSERTs.
       const id = crypto.randomUUID();
       bookingRows.push({
@@ -523,7 +523,8 @@ export async function persistImport(
         rawRow: r.rawRow,
         createdAt: b.createdAt,
         updatedAt: b.createdAt,
-        lastActivityAt: b.createdAt,
+        // Sheet order within a batch: row 1 sorts first under "newest activity first".
+        lastActivityAt: new Date(b.createdAt.getTime() - idx),
       });
       if (r.draft.externalBookingId && !idByExternal.has(r.draft.externalBookingId)) idByExternal.set(r.draft.externalBookingId, id);
       r.draft.items.forEach((it, pos) => itemRows.push(itemValues(id, it, pos, r.itemRaw.get(it.itemId))));

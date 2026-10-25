@@ -133,8 +133,8 @@ export function composeReply(r: ReplyInput): string {
   const nowFail = e.rules.filter((x) => x.status === "fail");
   const newlyFailed = nowFail.filter((x) => !prevFail.has(x.ruleId));
   const fixed = [...prevFail].filter((id) => !nowFail.some((x) => x.ruleId === id));
-  for (const f of newlyFailed.slice(0, 3)) parts.push(`⚠ ${f.ruleId} (${f.severity}): ${f.summary} Fix: ${f.findings[0]?.fix ?? ""}`.trim());
-  if (fixed.length) parts.push(`✓ Now passing: ${fixed.join(", ")}.`);
+  for (const f of newlyFailed.slice(0, 3)) parts.push(`Flagged ${f.ruleId} (${f.severity}): ${f.summary} Fix: ${f.findings[0]?.fix ?? ""}`.trim());
+  if (fixed.length) parts.push(`Now passing: ${fixed.join(", ")}.`);
 
   if (e.status === "Draft") {
     const ask = questionFor(nextQuestionFields(e.missingFields), b);

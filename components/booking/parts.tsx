@@ -4,7 +4,7 @@ import { useState } from "react";
 import { formatLong, formatUK } from "@/lib/domain/dates";
 import { formatGBP, formatKg, formatNumber } from "@/lib/domain/decimal";
 import type { CarrierAssessment, DraftBooking, DraftItem, Evaluation, InputIssue, RuleResult } from "@/lib/client/types";
-import { RuleChip, StatusPill, cx, ruleState } from "../ui";
+import { Glyph, RuleChip, StatusPill, cx, ruleState } from "../ui";
 
 const CELL: Record<string, string> = {
   pass: "bg-pass-bg text-pass-ink",
@@ -12,7 +12,6 @@ const CELL: Record<string, string> = {
   amber: "bg-amber-bg text-amber-ink",
   na: "bg-na-bg text-na-ink",
 };
-const GLYPH: Record<string, string> = { pass: "✓", red: "▲", amber: "●", na: "○" };
 const WORD: Record<string, string> = { pass: "Pass", red: "Red", amber: "Amber", na: "Not evaluable" };
 
 /** Signature element: all ten rulebook checks at a glance. */
@@ -30,7 +29,7 @@ export function PreflightStrip({ rules, onSelect }: { rules: RuleResult[]; onSel
               aria-label={`${r.ruleId} ${r.title}: ${WORD[s]}`}
               className={cx("flex h-11 w-full flex-col items-center justify-center rounded-md text-[10px] leading-none", CELL[s])}
             >
-              <span aria-hidden className="text-[11px]">{GLYPH[s]}</span>
+              <Glyph kind={s} className="size-3" />
               <span className="mt-1 font-mono">{r.ruleId.slice(2)}</span>
             </button>
           </li>

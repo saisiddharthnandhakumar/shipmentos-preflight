@@ -55,7 +55,7 @@ export const ITEM_HEADERS = [
   "Country of origin",
 ] as const;
 
-export const IMPORT_LIMITS = { maxBytes: 5 * 1024 * 1024, maxBookingRows: 2000, maxItemRows: 10_000, maxItemsPerBooking: 200 };
+export const IMPORT_LIMITS = { maxBytes: 4 * 1024 * 1024, maxBookingRows: 2000, maxItemRows: 10_000, maxItemsPerBooking: 200 };
 
 type BookingHeader = (typeof BOOKING_HEADERS)[number];
 type ItemHeader = (typeof ITEM_HEADERS)[number];

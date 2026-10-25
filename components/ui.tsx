@@ -29,20 +29,34 @@ export function Button({
   );
 }
 
+export type GlyphKind = "pass" | "red" | "amber" | "na";
+
+/** Shape + colour together, so severity never relies on colour alone. */
+export function Glyph({ kind, className }: { kind: GlyphKind; className?: string }) {
+  return (
+    <svg viewBox="0 0 12 12" aria-hidden className={cx("size-2.5 flex-none", className)}>
+      {kind === "pass" && <path d="M2.5 6.3 5 8.6 9.5 3.6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />}
+      {kind === "red" && <path d="M6 1.8 10.6 10H1.4Z" fill="currentColor" />}
+      {kind === "amber" && <circle cx="6" cy="6" r="3.6" fill="currentColor" />}
+      {kind === "na" && <circle cx="6" cy="6" r="3.4" fill="none" stroke="currentColor" strokeWidth="1.5" />}
+    </svg>
+  );
+}
+
 export type StatusName = "Draft" | "Blocked" | "Needs attention" | "Ready to submit";
 
-const STATUS_STYLE: Record<string, { cls: string; glyph: string }> = {
-  Blocked: { cls: "bg-red-bg text-red-ink", glyph: "▲" },
-  "Needs attention": { cls: "bg-amber-bg text-amber-ink", glyph: "●" },
-  "Ready to submit": { cls: "bg-pass-bg text-pass-ink", glyph: "✓" },
-  Draft: { cls: "bg-na-bg text-na-ink", glyph: "○" },
+const STATUS_STYLE: Record<string, { cls: string; glyph: GlyphKind }> = {
+  Blocked: { cls: "bg-red-bg text-red-ink", glyph: "red" },
+  "Needs attention": { cls: "bg-amber-bg text-amber-ink", glyph: "amber" },
+  "Ready to submit": { cls: "bg-pass-bg text-pass-ink", glyph: "pass" },
+  Draft: { cls: "bg-na-bg text-na-ink", glyph: "na" },
 };
 
 export function StatusPill({ status, className }: { status: string; className?: string }) {
   const s = STATUS_STYLE[status] ?? STATUS_STYLE.Draft;
   return (
     <span className={cx("inline-flex h-6 flex-none items-center gap-1 rounded-full px-2.5 text-xs font-medium whitespace-nowrap", s.cls, className)}>
-      <span aria-hidden className="text-[10px]">{s.glyph}</span>
+      <Glyph kind={s.glyph} />
       {status}
     </span>
   );
@@ -55,18 +69,18 @@ export function ruleState(r: { status: string; severity: string }): RuleState {
   return r.severity === "Red" ? "red" : "amber";
 }
 
-const RULE_STYLE: Record<RuleState, { cls: string; glyph: string; label: string }> = {
-  pass: { cls: "bg-pass-bg text-pass-ink", glyph: "✓", label: "Pass" },
-  red: { cls: "bg-red-bg text-red-ink", glyph: "▲", label: "Red" },
-  amber: { cls: "bg-amber-bg text-amber-ink", glyph: "●", label: "Amber" },
-  na: { cls: "bg-na-bg text-na-ink", glyph: "○", label: "Not evaluable" },
+const RULE_STYLE: Record<RuleState, { cls: string; label: string }> = {
+  pass: { cls: "bg-pass-bg text-pass-ink", label: "Pass" },
+  red: { cls: "bg-red-bg text-red-ink", label: "Red" },
+  amber: { cls: "bg-amber-bg text-amber-ink", label: "Amber" },
+  na: { cls: "bg-na-bg text-na-ink", label: "Not evaluable" },
 };
 
 export function RuleChip({ state, className }: { state: RuleState; className?: string }) {
   const s = RULE_STYLE[state];
   return (
     <span className={cx("inline-flex h-5 flex-none items-center gap-1 rounded-full px-2 text-[11px] font-medium whitespace-nowrap", s.cls, className)}>
-      <span aria-hidden className="text-[9px]">{s.glyph}</span>
+      <Glyph kind={state} className="size-2" />
       {s.label}
     </span>
   );

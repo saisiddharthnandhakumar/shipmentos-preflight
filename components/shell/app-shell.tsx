@@ -56,6 +56,9 @@ function Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-dvh min-h-0 bg-frame">
+      <a href="#main" className="sr-only z-50 rounded-lg bg-white px-3 py-2 text-sm font-medium focus:not-sr-only focus:fixed focus:top-2 focus:left-2">
+        Skip to main content
+      </a>
       {/* Desktop rail: part of the tinted L-frame */}
       <aside
         className={cx("hidden min-h-0 flex-none flex-col lg:flex", collapsed ? "w-0 overflow-hidden" : "w-[248px]")}
@@ -94,13 +97,13 @@ function Shell({ children }: { children: ReactNode }) {
           {collapsed && (
             <span className="hidden items-center gap-2 pr-2 lg:flex">
               <LogoMark className="size-5" />
-              <span className="text-sm font-semibold text-ink">ShipmentOS</span>
+              <span translate="no" className="text-sm font-semibold text-ink">ShipmentOS</span>
             </span>
           )}
           <span className="flex items-center gap-2 lg:hidden">
             <LogoMark className="size-5" />
           </span>
-          <nav aria-label="Mode" className="flex h-12 min-w-0 items-stretch gap-1 overflow-x-auto">
+          <nav aria-label="Mode" className="flex h-12 min-w-0 items-stretch gap-1 overflow-x-auto pr-2">
             {MODES.map((m) => {
               const active = m.match(pathname);
               return (
@@ -122,7 +125,7 @@ function Shell({ children }: { children: ReactNode }) {
           <p className="ml-auto hidden pr-2 text-xs text-faint xl:block">Booking preparation demo · no carrier is contacted</p>
         </header>
 
-        <main className="min-h-0 flex-1 lg:pr-2 lg:pb-2">
+        <main id="main" tabIndex={-1} className="min-h-0 flex-1 outline-none lg:pr-2 lg:pb-2">
           <div className="flex h-full min-h-0 flex-col overflow-hidden border-border bg-sheet lg:rounded-2xl lg:border">
             {h.sessionError ? (
               <div className="m-auto max-w-md p-6 text-center">

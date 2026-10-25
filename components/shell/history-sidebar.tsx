@@ -75,7 +75,7 @@ export function HistorySidebar({ onNavigate }: { onNavigate?: () => void }) {
     <nav aria-label="Conversation history" className="flex h-full min-h-0 flex-col">
       <div className="flex h-12 flex-none items-center gap-2 px-4">
         <LogoMark className="size-6" />
-        <span className="text-[15px] font-semibold tracking-[-0.01em] text-ink">ShipmentOS</span>
+        <span translate="no" className="text-[15px] font-semibold tracking-[-0.01em] text-ink">ShipmentOS</span>
         <span className="ml-auto text-[11px] text-faint">UK → EU</span>
       </div>
       <div className="px-3 pt-1 pb-3">
