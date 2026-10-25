@@ -16,7 +16,7 @@ route and kg/pallet, priority ranking (Cheapest / Fastest / Most reliable / Bala
 steps. Gemini is used only to turn a chat message into typed patch operations — never for arithmetic, rule
 verdicts, carrier choice or dates.
 
-- **Live app (no login):** see `docs/DEPLOYMENT.md` for the verified production URL
+- **Live app (no login):** https://shipmentos-preflight.vercel.app
 - **Repository:** https://github.com/saisiddharthnandhakumar/shipmentos-preflight
 
 ## Features
