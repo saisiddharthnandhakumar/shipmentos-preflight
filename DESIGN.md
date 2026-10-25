@@ -5,31 +5,44 @@ operations web app. The full reference follows below the ShipmentOS adaptation n
 
 ## Palette, type and theme (current; the Mercury reference further down is historical background only)
 
-**Colour.** Harbour-slate ink (#14262e) with North Sea blue (#1d6a8c) as the only accent, on warm concrete
-neutrals (frame #e9ece7, sheet #fbfbf8). Accent marks interactive and selected state only. Status colours
-(red, amber, pass, not-evaluable) are for status only and always carry a glyph and a word. A dark set lives
-under `:root[data-theme="dark"]` (frame #0c1215, sheet #141b1f, accent #6cb8d6). The theme is set before
-paint by an inline script in `app/layout.tsx` (localStorage `shipmentos.theme`, falling back to the OS
-setting) and switched by `components/shell/theme-toggle.tsx`. Never hardcode colours; use tokens.
+Visual direction: a high-contrast dashboard in the style of the "flux" reference. A charcoal rail, a floating
+light-grey canvas (28px radius), big white cards (24px radius, no borders), one dark card per screen, lime as
+the signal colour and lavender as the second data colour. Numbers are the hero of each card.
 
-**Type (Public Sans; IBM Plex Mono only for IDs and codes).** Size separates levels; weight only refines them.
-Tokens are in `app/globals.css`; do not write `text-[Npx]`.
+**Colour** (tokens in `app/globals.css`; never hardcode):
+- Surfaces: `app` #1c1c1c (rail and outer), `canvas` #dedede, `sheet` #ffffff (cards), `raised` #f2f2f0, `card-dark` #1c1c1c.
+- Signal: `accent` lime #d6ee6f (fills, bars, active nav), `accent-ink` #3b4a00 for text in the lime family on light
+  surfaces, `lavender` #b9b0ef, `accent-soft` a lavender wash.
+- Primary button: charcoal on light, lime on dark. Status pills keep semantic pastels (red, amber, lime-green, grey) and
+  always carry a glyph and a word.
+- Dark theme: `:root[data-theme="dark"]` (app #0e0e0e, canvas #181818, cards #242424). Set before paint by the
+  script in `app/layout.tsx`; switched by `components/shell/theme-toggle.tsx`.
+- `.on-charcoal` re-points the tokens for charcoal surfaces (the rail, `Card tone="dark"`), so any utility inside
+  works unchanged. Use it instead of hardcoding light-on-dark colours.
+
+**Type.** Poppins (display: titles, headings, card titles, figures) and Public Sans (body); IBM Plex Mono for IDs.
+Tokens, not `text-[Npx]`:
 
 | Token | Size / line | Use |
 |---|---|---|
-| `text-title` | 28 / 34, 600 | One per page |
-| `text-heading` | 18 / 24, 600 | Section headings |
-| `text-card` | 15 / 20, 600 | Card and group titles |
+| `text-display` | 56 / 56, 500 | The one big number on a card |
+| `text-title` | 36 / 40, 500 | One per page |
+| `text-heading` | 20 / 28, 500 | Section headings |
+| `text-figure` | 32 / 36, 500 | Secondary numbers and prices |
+| `text-card` | 16 / 22, 500 | Card titles |
 | `text-sm` | 14 / 20 | Body |
-| `text-small` | 13 / 18 | Secondary text, table cells, controls |
-| `text-caption` | 12 / 16 | Meta, chips, hints |
-| `text-figure` | 28 / 32, 600 | Counts and prices |
+| `text-small` | 13 / 18 | Secondary text, table cells |
+| `text-caption` | 12 / 16 | Meta, chips |
 
-**Vocabulary.** Booking status: Blocked / Needs attention / Ready to submit / Draft. Rule results: Must fix
-(rulebook Red) and Check (rulebook Amber). The domain data and the engine headline still say Red and Amber.
+**Card anatomy.** `Card`: round grey `IconBadge` + title, then the content. Numbers use `Figure` (big value, small muted unit
+beside it). Deltas and shares use `Chip` (lime, lavender or dark pill). `Stat` is a linked count card.
 
-**Screens.** Today (work queue) is home. A booking, from chat or Excel, opens at `/bookings/[id]`: status and
-the "Fix these first" list lead, details follow. Chat shows the same sections in its side panel.
+**Vocabulary.** Booking status: Blocked / Needs attention / Ready to submit / Draft. Rule results: Must fix (rulebook Red)
+and Check (rulebook Amber). The domain data and the engine headline still say Red and Amber.
+
+**Screens.** Today is home (booking mix bubbles and bars, four stat cards, a dark "Needs your attention" card). A booking, from
+chat or Excel, opens at `/bookings/[id]`: status and "Fix these first" lead in one card; the carrier and price sit in the
+dark card; details follow. Chat is two cards: conversation and live booking.
 
 ## ShipmentOS adaptations
 

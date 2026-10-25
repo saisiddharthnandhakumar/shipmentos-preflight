@@ -142,7 +142,7 @@ export function CarrierPanel({ carrier, status, timeline }: { carrier: CarrierAs
   return (
     <div data-testid="carrier-panel">
       {chosen ? (
-        <div className="rounded-lg border border-border p-3">
+        <div className="rounded-2xl bg-raised p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-caption text-muted">
@@ -154,7 +154,7 @@ export function CarrierPanel({ carrier, status, timeline }: { carrier: CarrierAs
                 {chosen.option.carrier} <span className="font-normal text-muted">{chosen.option.service}</span>
               </p>
             </div>
-            <p className="num text-right text-figure text-text" data-testid="carrier-cost">
+            <p className="num text-right text-figure text-accent-ink" data-testid="carrier-cost">
               {formatGBP(chosen.totalCostGBP)}
             </p>
           </div>

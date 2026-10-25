@@ -89,7 +89,7 @@ export function BookingsHistory() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-6xl px-4 py-6 lg:px-8 lg:py-8">
+      <div className="mx-auto max-w-6xl px-4 pt-2 pb-8 lg:px-6">
         <PageHeader
           title="All bookings"
           description="Every booking from your chats and Excel uploads in this browser, most recently active first."
@@ -108,7 +108,7 @@ export function BookingsHistory() {
                 type="button"
                 aria-pressed={status === s}
                 onClick={() => setStatus(s)}
-                className={cx("h-8 rounded-full px-3 text-small font-medium transition-colors", status === s ? "bg-primary text-on-primary" : "bg-raised text-muted hover:bg-active hover:text-text")}
+                className={cx("h-9 rounded-full px-4 text-small font-medium transition-colors", status === s ? "bg-primary text-on-primary" : "bg-sheet text-muted hover:text-text")}
               >
                 {s || "All"}
               </button>
@@ -116,17 +116,17 @@ export function BookingsHistory() {
           </div>
           <label className="ml-auto block w-full sm:w-72">
             <span className="sr-only">Search bookings</span>
-            <input name="q" type="search" autoComplete="off" spellCheck={false} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search route, seller or booking ID…" className="h-9 w-full rounded-lg border border-control bg-sheet px-3 text-small placeholder:text-faint" />
+            <input name="q" type="search" autoComplete="off" spellCheck={false} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search route, seller or booking ID…" className="h-10 w-full rounded-full bg-sheet px-4 text-small placeholder:text-faint" />
           </label>
         </div>
-        <div role="group" aria-label="Source" className="mt-3 inline-flex rounded-lg bg-raised p-0.5">
+        <div role="group" aria-label="Source" className="mt-3 inline-flex rounded-full bg-sheet p-1">
           {(["all", "chat", "excel"] as Source[]).map((s) => (
             <button
               key={s}
               type="button"
               aria-pressed={source === s}
               onClick={() => setSource(s)}
-              className={cx("h-7 rounded-md px-3 text-small font-medium", source === s ? "bg-sheet text-text" : "text-muted hover:text-text")}
+              className={cx("h-7 rounded-full px-3.5 text-small font-medium", source === s ? "bg-primary text-on-primary" : "text-muted hover:text-text")}
               data-testid={`source-${s}`}
             >
               {s === "all" ? "Any source" : s === "chat" ? "Chats" : "Excel imports"}
@@ -167,7 +167,7 @@ export function BookingsHistory() {
             )}
           </div>
         ) : (
-          <div className="mt-4">
+          <div className="mt-4 rounded-3xl bg-sheet p-4 sm:p-6">
             {/* Phone: two-line rows (identity + status, then route and activity) */}
             <ul className="divide-y divide-rule sm:hidden" aria-label="Bookings">
               {items.map((b) => (

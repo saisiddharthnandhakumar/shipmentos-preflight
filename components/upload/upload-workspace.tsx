@@ -58,7 +58,7 @@ export function UploadStart() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-5xl px-4 py-6 lg:px-8 lg:py-8">
+      <div className="mx-auto max-w-5xl px-4 pt-2 pb-8 lg:px-6">
         <PageHeader
           title="Upload Excel"
           description={
@@ -81,8 +81,8 @@ export function UploadStart() {
             if (f) void send(f);
           }}
           className={cx(
-            "mt-6 flex flex-col items-center justify-center rounded-xl border border-dashed px-6 py-12 text-center",
-            drag ? "border-accent bg-accent-soft" : "border-control bg-raised",
+            "mt-6 flex flex-col items-center justify-center rounded-3xl border-2 border-dashed px-6 py-14 text-center",
+            drag ? "border-ink bg-accent" : "border-control bg-sheet",
           )}
         >
           <svg viewBox="0 0 40 40" className="size-10 text-muted" aria-hidden fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -114,7 +114,7 @@ export function UploadStart() {
           </div>
         )}
 
-        <section className="mt-10" aria-labelledby="prev-uploads">
+        <section className="mt-6 rounded-3xl bg-sheet p-5 sm:p-6" aria-labelledby="prev-uploads">
           <h2 id="prev-uploads" className="text-heading text-text">
             Previous uploads in this browser
           </h2>
@@ -216,7 +216,7 @@ export function UploadResults({ batchId }: { batchId: string }) {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-6xl px-4 py-6 lg:px-8 lg:py-8">
+      <div className="mx-auto max-w-6xl px-4 pt-2 pb-8 lg:px-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="truncate text-title text-text" data-testid="upload-title">
@@ -232,7 +232,7 @@ export function UploadResults({ batchId }: { batchId: string }) {
           </Link>
         </div>
 
-        <div role="group" aria-label="Filter by status" className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-5" data-testid="upload-summary">
+        <div role="group" aria-label="Filter by status" className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-5" data-testid="upload-summary">
           {counts.map((c) => (
             <button
               key={c.key}
@@ -240,13 +240,13 @@ export function UploadResults({ batchId }: { batchId: string }) {
               aria-pressed={filter === c.key}
               onClick={() => setFilter(c.key)}
               className={cx(
-                "rounded-lg border px-3 py-2.5 text-left",
-                filter === c.key ? "border-accent bg-accent-soft" : "border-border bg-sheet hover:bg-raised",
+                "rounded-3xl p-4 text-left transition-colors",
+                filter === c.key ? "bg-accent text-on-accent" : "bg-sheet hover:bg-raised",
                 c.key === "issues" && counts.length % 2 === 1 && "col-span-2 sm:col-span-1",
               )}
             >
-              <span className="block text-caption text-muted">{c.label}</span>
-              <span className="num mt-0.5 block text-heading text-text" data-testid={`count-${c.key}`}>
+              <span className={cx("block text-small", filter === c.key ? "text-on-accent" : "text-muted")}>{c.label}</span>
+              <span className={cx("num mt-2 block text-figure", filter === c.key ? "text-on-accent" : "text-text")} data-testid={`count-${c.key}`}>
                 {c.value}
               </span>
             </button>
@@ -267,7 +267,8 @@ export function UploadResults({ batchId }: { batchId: string }) {
           </section>
         )}
 
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+        <div className="mt-6 rounded-3xl bg-sheet p-4 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-heading text-text">
             Bookings <span className="num font-normal text-muted">{rows.length} shown</span>
           </h2>
@@ -281,7 +282,7 @@ export function UploadResults({ batchId }: { batchId: string }) {
               autoComplete="off"
               spellCheck={false}
               placeholder="Search ID, seller, country, status…"
-              className="h-9 w-full rounded-lg border border-control bg-sheet px-3 text-small placeholder:text-faint"
+              className="h-10 w-full rounded-full bg-raised px-4 text-small placeholder:text-faint"
               data-testid="upload-search"
             />
           </label>
@@ -348,7 +349,7 @@ export function UploadResults({ batchId }: { batchId: string }) {
                     <td className="py-2.5 text-right">
                       <Link
                         href={`/bookings/${b.id}`}
-                        className="text-small font-medium text-accent hover:underline"
+                        className="text-small font-medium text-accent-ink hover:underline"
                         onClick={(e) => e.stopPropagation()}
                         aria-label={`Open details for ${b.externalBookingId ?? b.title}`}
                       >
@@ -360,6 +361,7 @@ export function UploadResults({ batchId }: { batchId: string }) {
               )}
             </tbody>
           </table>
+        </div>
         </div>
       </div>
     </div>

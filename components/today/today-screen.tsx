@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { api, ApiClientError } from "@/lib/client/api";
 import type { BookingListItem, BookingSnapshot } from "@/lib/client/types";
 import { useHistory } from "../shell/history-context";
-import { Button, EmptyState, Notice, PageHeader, SectionHeading, Skeleton, Stat, StatusPill, relativeTime } from "../ui";
+import { Button, Card, Chip, EmptyState, Figure, Glyph, Notice, PageHeader, Skeleton, Stat, StatusPill, relativeTime } from "../ui";
 
 const STATUSES = ["Blocked", "Needs attention", "Ready to submit", "Draft"] as const;
 type Status = (typeof STATUSES)[number];
@@ -55,18 +55,36 @@ export function TodayScreen() {
   const total = data ? STATUSES.reduce((n, s) => n + data[s].items.length, 0) : 0;
   const attention = data ? [...data.Blocked.items, ...data["Needs attention"].items].sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt)) : [];
 
+  // Client-only: the server render has no date, so it never mismatches.
+  const today = useSyncExternalStore(
+    () => () => {},
+    () => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric" }).format(new Date()),
+    () => "",
+  );
+
+  const share = (n: number) => (total ? Math.round((n / total) * 100) : 0);
+  const mix = data
+    ? ([
+        { key: "Blocked", n: data.Blocked.items.length, bar: "bg-ink", dot: "bg-ink" },
+        { key: "Needs attention", n: data["Needs attention"].items.length, bar: "bg-lavender", dot: "bg-lavender" },
+        { key: "Ready to submit", n: data["Ready to submit"].items.length, bar: "bg-accent", dot: "bg-accent" },
+        { key: "Draft", n: data.Draft.items.length, bar: "bg-faint", dot: "bg-faint" },
+      ] as const)
+    : [];
+
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-5xl space-y-8 px-4 py-6 lg:px-8 lg:py-8">
+      <div className="mx-auto max-w-6xl space-y-6 px-4 pt-2 pb-8 lg:px-6">
         <PageHeader
           title="Today"
           description="What needs your attention before a booking can go to the carrier."
           actions={
             <>
-              <Link href="/upload" className="inline-flex h-9 items-center rounded-lg border border-control bg-sheet px-3.5 text-sm font-medium text-text hover:bg-raised">
+              {today && <span className="hidden text-small text-muted sm:inline">{today}</span>}
+              <Link href="/upload" className="inline-flex h-10 items-center rounded-full bg-sheet px-5 text-sm font-medium text-text transition-colors hover:bg-raised">
                 Upload Excel
               </Link>
-              <Link href="/chat?new=today" className="inline-flex h-9 items-center rounded-lg bg-primary px-3.5 text-sm font-medium text-on-primary hover:bg-primary-hover">
+              <Link href="/chat?new=today" className="inline-flex h-10 items-center rounded-full bg-primary px-5 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover">
                 New booking
               </Link>
             </>
@@ -78,24 +96,21 @@ export function TodayScreen() {
             {error}
           </Notice>
         ) : !data ? (
-          <div className="space-y-4" aria-label="Loading your bookings">
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              {[0, 1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-24 rounded-xl" />
-              ))}
-            </div>
-            <Skeleton className="h-16" />
-            <Skeleton className="h-16" />
+          <div className="grid gap-4 lg:grid-cols-3" aria-label="Loading your bookings">
+            <Skeleton className="h-96 rounded-3xl lg:row-span-2" />
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-44 rounded-3xl" />
+            ))}
           </div>
         ) : total === 0 ? (
           <EmptyState
             title="No bookings yet"
             actions={
               <>
-                <Link href="/chat?new=today" className="inline-flex h-9 items-center rounded-lg bg-primary px-3.5 text-sm font-medium text-on-primary hover:bg-primary-hover">
+                <Link href="/chat?new=today" className="inline-flex h-10 items-center rounded-full bg-primary px-5 text-sm font-medium text-on-primary hover:bg-primary-hover">
                   Describe a shipment
                 </Link>
-                <Link href="/upload" className="inline-flex h-9 items-center rounded-lg border border-control bg-sheet px-3.5 text-sm font-medium text-text hover:bg-raised">
+                <Link href="/upload" className="inline-flex h-10 items-center rounded-full border border-control bg-sheet px-5 text-sm font-medium text-text hover:bg-raised">
                   Upload a spreadsheet
                 </Link>
                 <Button variant="ghost" onClick={() => void loadSample()} disabled={seeding}>
@@ -108,35 +123,60 @@ export function TodayScreen() {
           </EmptyState>
         ) : (
           <>
-            <section aria-label="Booking totals" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <Stat label="Blocked" value={countLabel(data.Blocked)} tone="red" glyph="red" href="/bookings?status=Blocked" hint="Must be fixed first" />
-              <Stat label="Needs attention" value={countLabel(data["Needs attention"])} tone="amber" glyph="amber" href="/bookings?status=Needs%20attention" hint="Worth a check" />
-              <Stat label="Ready to submit" value={countLabel(data["Ready to submit"])} tone="pass" glyph="pass" href="/bookings?status=Ready%20to%20submit" hint="Nothing left to fix" />
-              <Stat label="Draft" value={countLabel(data.Draft)} tone="na" glyph="na" href="/bookings?status=Draft" hint="Still being filled in" />
+            <section aria-label="Booking totals" className="grid gap-4 lg:grid-cols-3">
+              <Card
+                title="Booking mix"
+                className="lg:row-span-2"
+                icon={<svg viewBox="0 0 16 16" className="size-4" aria-hidden fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="6" cy="8" r="4" /><circle cx="10.5" cy="8" r="3" /></svg>}
+              >
+                <Figure value={total} unit="bookings in this browser" size="display" />
+                <MixBubbles blocked={mix[0].n} attention={mix[1].n} ready={mix[2].n} />
+                <ul className="mt-5 space-y-4">
+                  {mix.map((m) => (
+                    <li key={m.key}>
+                      <div className="flex items-end justify-between gap-3">
+                        <Figure value={share(m.n)} unit="%" />
+                        <span className="flex items-center gap-1.5 pb-1 text-small text-muted">
+                          {m.key}
+                          <span aria-hidden className={`size-2 rounded-full ${m.dot}`} />
+                        </span>
+                      </div>
+                      <div className="mt-1.5 h-3 overflow-hidden rounded-full bg-raised" role="presentation">
+                        <div className={`h-full rounded-full ${m.bar}`} style={{ width: `${share(m.n)}%` }} />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+              <Stat label="Blocked" value={countLabel(data.Blocked)} unit="bookings" tone="red" glyph="red" href="/bookings?status=Blocked" hint="Must be fixed first" chip={<Chip tone="dark">{share(mix[0].n)}%</Chip>} />
+              <Stat label="Needs attention" value={countLabel(data["Needs attention"])} unit="bookings" tone="amber" glyph="amber" href="/bookings?status=Needs%20attention" hint="Worth a check" chip={<Chip tone="lavender">{share(mix[1].n)}%</Chip>} />
+              <Stat label="Ready to submit" value={countLabel(data["Ready to submit"])} unit="bookings" tone="pass" glyph="pass" href="/bookings?status=Ready%20to%20submit" hint="Nothing left to fix" chip={<Chip>{share(mix[2].n)}%</Chip>} />
+              <Stat label="Draft" value={countLabel(data.Draft)} unit="bookings" tone="na" glyph="na" href="/bookings?status=Draft" hint="Still being filled in" />
             </section>
 
-            <section aria-labelledby="attention-h" className="space-y-3">
-              <SectionHeading id="attention-h" action={attention.length > 0 ? <Link href="/bookings?status=Blocked" className="text-small font-medium text-accent hover:underline">See all</Link> : undefined}>
-                Needs your attention
-              </SectionHeading>
+            <Card
+              tone="dark"
+              title="Needs your attention"
+              icon={<Glyph kind="red" className="size-4 text-red-ink" />}
+              action={attention.length > 0 ? <Link href="/bookings?status=Blocked" className="text-small font-medium text-accent-ink hover:underline">See all</Link> : undefined}
+            >
               {attention.length === 0 ? (
-                <p className="rounded-xl bg-pass-bg px-4 py-3 text-sm text-pass-ink">Nothing is blocked and nothing needs a check. You&apos;re up to date.</p>
+                <p className="rounded-2xl bg-pass-bg px-4 py-3 text-sm text-pass-ink">Nothing is blocked and nothing needs a check. You&apos;re up to date.</p>
               ) : (
-                <ul className="divide-y divide-rule rounded-xl border border-border bg-sheet" data-testid="attention-list">
+                <ul className="-mx-2 divide-y divide-rule" data-testid="attention-list">
                   {attention.slice(0, 8).map((b, i) => (
                     <AttentionRow key={b.id} b={b} loadFix={i < 5} />
                   ))}
                 </ul>
               )}
-            </section>
+            </Card>
 
             {data["Ready to submit"].items.length > 0 && (
-              <section aria-labelledby="ready-h" className="space-y-3">
-                <SectionHeading id="ready-h">Ready to submit</SectionHeading>
-                <ul className="divide-y divide-rule rounded-xl border border-border bg-sheet">
+              <Card title="Ready to submit" icon={<Glyph kind="pass" className="size-4 text-pass-ink" />}>
+                <ul className="-mx-2 divide-y divide-rule">
                   {data["Ready to submit"].items.slice(0, 5).map((b) => (
                     <li key={b.id}>
-                      <Link href={`/bookings/${b.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-raised">
+                      <Link href={`/bookings/${b.id}`} className="flex items-center gap-3 rounded-2xl px-2 py-3 transition-colors hover:bg-raised">
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-small font-medium text-text">{b.title}</span>
                           <span className="block truncate text-caption text-muted">{b.sellerName ?? "Seller not given"}</span>
@@ -147,7 +187,7 @@ export function TodayScreen() {
                     </li>
                   ))}
                 </ul>
-              </section>
+              </Card>
             )}
           </>
         )}
@@ -161,6 +201,36 @@ export function TodayScreen() {
         )}
       </div>
     </div>
+  );
+}
+
+/** Three overlapping circles, area proportional to the count: black blocked, lavender needs attention, lime ready. */
+function MixBubbles({ blocked, attention, ready }: { blocked: number; attention: number; ready: number }) {
+  const max = Math.max(blocked, attention, ready, 1);
+  const r = (n: number) => 26 + 62 * Math.sqrt(n / max);
+  const rb = r(blocked);
+  const ra = r(attention);
+  const rr = r(ready);
+  return (
+    <svg viewBox="0 0 320 250" className="mt-4 w-full" role="img" aria-label={`${blocked} blocked, ${attention} needs attention, ${ready} ready to submit`}>
+      <circle cx={100} cy={105} r={ra} fill="var(--lavender)" />
+      <circle cx={222} cy={100} r={rb} fill="#1c1c1c" stroke="var(--sheet)" strokeWidth="3" />
+      <circle cx={168} cy={178} r={rr} fill="var(--accent)" stroke="var(--sheet)" strokeWidth="3" />
+      {[
+        { x: 100, y: 105, n: attention, c: "#1c1c1c" },
+        { x: 222, y: 100, n: blocked, c: "#ffffff" },
+        { x: 168, y: 178, n: ready, c: "#1c1c1c" },
+      ].map((t) => (
+        <g key={t.x} fill={t.c} textAnchor="middle">
+          <text x={t.x} y={t.y + 6} fontSize="26" fontWeight="500" style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.03em" }}>
+            {t.n}
+          </text>
+          <text x={t.x} y={t.y + 22} fontSize="11" opacity="0.7">
+            bookings
+          </text>
+        </g>
+      ))}
+    </svg>
   );
 }
 
@@ -186,7 +256,7 @@ function AttentionRow({ b, loadFix }: { b: BookingListItem; loadFix: boolean }) 
   const dest = b.destinationCountry;
   return (
     <li>
-      <Link href={`/bookings/${b.id}`} className="block px-4 py-3 hover:bg-raised">
+      <Link href={`/bookings/${b.id}`} className="block rounded-2xl px-2 py-3.5 transition-colors hover:bg-active">
         <span className="flex items-start justify-between gap-3">
           <span className="min-w-0">
             <span className="block truncate text-small font-medium text-text">{b.title}</span>

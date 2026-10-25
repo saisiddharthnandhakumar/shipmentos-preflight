@@ -51,25 +51,25 @@ function Shell({ children }: { children: ReactNode }) {
   const toggleRail = () => writeRail(!collapsed);
 
   return (
-    <div className="flex h-dvh min-h-0 bg-frame">
+    <div className="flex h-dvh min-h-0 bg-app">
       <a href="#main" className="sr-only z-50 rounded-lg bg-sheet px-3 py-2 text-sm font-medium focus:not-sr-only focus:fixed focus:top-2 focus:left-2">
         Skip to main content
       </a>
-      {/* Desktop rail: part of the tinted L-frame */}
+      {/* Desktop rail: charcoal, the canvas floats beside it */}
       <aside
-        className={cx("hidden min-h-0 flex-none flex-col lg:flex", collapsed ? "w-0 overflow-hidden" : "w-[248px]")}
+        className={cx("on-charcoal hidden min-h-0 flex-none flex-col lg:flex", collapsed ? "w-0 overflow-hidden" : "w-[264px]")}
         aria-hidden={collapsed || undefined}
         data-testid="history-rail"
       >
         {!collapsed && <HistorySidebar />}
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-12 flex-none items-center gap-2 px-2 lg:px-3">
+      <div className={cx("flex min-w-0 flex-1 flex-col overflow-hidden bg-canvas lg:m-2 lg:rounded-[28px]", !collapsed && "lg:ml-0")}>
+        <header className="flex h-16 flex-none items-center gap-2 px-3 lg:px-5">
           <button
             type="button"
             onClick={() => setDrawer(true)}
-            className="grid size-9 place-items-center rounded-lg text-muted hover:bg-active lg:hidden"
+            className="grid size-10 place-items-center rounded-full bg-sheet text-text transition-colors hover:bg-raised lg:hidden"
             aria-label="Open chat history"
             data-testid="open-history"
           >
@@ -80,7 +80,7 @@ function Shell({ children }: { children: ReactNode }) {
           <button
             type="button"
             onClick={toggleRail}
-            className="hidden size-9 place-items-center rounded-lg text-muted hover:bg-active lg:grid"
+            className="hidden size-10 place-items-center rounded-full bg-sheet text-text transition-colors hover:bg-raised lg:grid"
             aria-label={collapsed ? "Show chat history" : "Hide chat history"}
             aria-pressed={!collapsed}
             data-testid="toggle-rail"
@@ -93,13 +93,13 @@ function Shell({ children }: { children: ReactNode }) {
           {collapsed && (
             <span className="hidden items-center gap-2 pr-2 lg:flex">
               <LogoMark className="size-5" />
-              <span translate="no" className="text-sm font-semibold text-ink">ShipmentOS</span>
+              <span translate="no" className="text-card text-ink">ShipmentOS</span>
             </span>
           )}
           <span className="flex items-center gap-2 lg:hidden">
             <LogoMark className="size-5" />
           </span>
-          <nav aria-label="Mode" className="flex h-12 min-w-0 items-stretch gap-1 overflow-x-auto pr-2 lg:hidden">
+          <nav aria-label="Mode" className="flex min-w-0 items-stretch gap-1 overflow-x-auto pr-2 lg:hidden">
             {NAV.map((m) => {
               const active = m.match(pathname);
               return (
@@ -108,12 +108,11 @@ function Shell({ children }: { children: ReactNode }) {
                   href={m.href}
                   aria-current={active ? "page" : undefined}
                   className={cx(
-                    "relative flex flex-none items-center px-2.5 text-small font-medium whitespace-nowrap",
-                    active ? "text-text" : "text-muted hover:text-text",
+                    "my-3 flex flex-none items-center rounded-full px-3.5 text-small font-medium whitespace-nowrap",
+                    active ? "bg-primary text-on-primary" : "text-muted hover:text-text",
                   )}
                 >
                   {m.label}
-                  {active && <span aria-hidden className="absolute inset-x-2.5 bottom-0 h-0.5 rounded-full bg-accent" />}
                 </Link>
               );
             })}
@@ -123,8 +122,8 @@ function Shell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main id="main" tabIndex={-1} className="min-h-0 flex-1 outline-none lg:pr-2 lg:pb-2">
-          <div className="flex h-full min-h-0 flex-col overflow-hidden border-border bg-sheet lg:rounded-2xl lg:border">
+        <main id="main" tabIndex={-1} className="min-h-0 flex-1 outline-none">
+          <div className="flex h-full min-h-0 flex-col overflow-hidden">
             {h.sessionError ? (
               <div className="m-auto max-w-md p-6 text-center">
                 <h1 className="text-heading">We couldn&apos;t start your session</h1>
@@ -150,7 +149,7 @@ function Shell({ children }: { children: ReactNode }) {
       </div>
 
       <Drawer open={drawer} onClose={() => setDrawer(false)} label="Chat history" side="left">
-        <div className="h-full bg-frame">
+        <div className="on-charcoal h-full bg-app">
           <HistorySidebar onNavigate={() => setDrawer(false)} />
         </div>
       </Drawer>

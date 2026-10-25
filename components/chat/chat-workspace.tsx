@@ -193,33 +193,32 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
   const empty = loadState === "ready" && messages.length === 0 && !pending;
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 flex-col px-3 pb-3 lg:px-6 lg:pb-6">
       {/* Phone/tablet: one region at a time */}
-      <div role="tablist" aria-label="Chat view" className="flex flex-none border-b border-border px-3 lg:hidden">
+      <div role="tablist" aria-label="Chat view" className="mb-3 flex flex-none gap-1 rounded-full bg-sheet p-1 lg:hidden">
         {(["chat", "booking"] as const).map((t) => (
           <button
             key={t}
             role="tab"
             aria-selected={tab === t}
             onClick={() => setTab(t)}
-            className={cx("relative h-11 px-3 text-small font-medium", tab === t ? "text-text" : "text-muted")}
+            className={cx("h-9 flex-1 rounded-full px-3 text-small font-medium", tab === t ? "bg-primary text-on-primary" : "text-muted")}
             data-testid={`tab-${t}`}
           >
             {t === "chat" ? "Conversation" : `Booking${evaluation ? ` · ${evaluation.status}` : ""}`}
-            {tab === t && <span aria-hidden className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-accent" />}
           </button>
         ))}
       </div>
 
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 gap-4">
         {/* Conversation */}
-        <section aria-label="Conversation" className={cx("min-w-0 flex-1 flex-col", tab === "chat" ? "flex" : "hidden lg:flex")}>
+        <section aria-label="Conversation" className={cx("min-w-0 flex-1 flex-col overflow-hidden rounded-3xl bg-sheet", tab === "chat" ? "flex" : "hidden lg:flex")}>
           <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto" onScroll={(e) => {
             const el = e.currentTarget;
             stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
           }}>
             <div className="mx-auto w-full max-w-[720px] px-4 py-6">
-              <h1 className={cx("text-title text-text", !empty && "sr-only")}>{snap?.booking.title && snap.booking.title !== "New shipment" ? snap.booking.title : "Book a shipment"}</h1>
+              <h1 className={cx("text-title text-ink", !empty && "sr-only")}>{snap?.booking.title && snap.booking.title !== "New shipment" ? snap.booking.title : "Book a shipment"}</h1>
               {empty && (
                 <div data-testid="chat-empty">
                   <p className="mt-1 max-w-[56ch] text-sm text-muted">
@@ -228,12 +227,12 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
                   <p className="mt-5 text-small font-medium text-text">Try one of these</p>
                   <div className="mt-2 space-y-2">
                     {EXAMPLES.map((ex) => (
-                      <button key={ex} type="button" onClick={() => setText(ex)} className="block w-full rounded-lg border border-border bg-sheet px-3 py-2.5 text-left text-small text-text hover:bg-raised">
+                      <button key={ex} type="button" onClick={() => setText(ex)} className="block w-full rounded-2xl bg-raised px-4 py-3 text-left text-small text-text transition-colors hover:bg-active">
                         {ex}
                       </button>
                     ))}
                   </div>
-                  <p className="mt-4 text-caption text-muted">Prefer a form? <button className="font-medium text-accent underline-offset-2 hover:underline" onClick={() => setEditing(true)}>Fill it in by hand</button>. Have a spreadsheet? <Link href="/upload" className="font-medium text-accent underline-offset-2 hover:underline">Upload Excel</Link>.</p>
+                  <p className="mt-4 text-caption text-muted">Prefer a form? <button className="font-medium text-accent-ink underline-offset-2 hover:underline" onClick={() => setEditing(true)}>Fill it in by hand</button>. Have a spreadsheet? <Link href="/upload" className="font-medium text-accent-ink underline-offset-2 hover:underline">Upload Excel</Link>.</p>
                 </div>
               )}
               {loadState === "loading" && (
@@ -261,7 +260,7 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
                 ))}
                 {pending && (
                   <li className="flex flex-col items-end" data-testid="pending-message">
-                    <div className={cx("max-w-[85%] rounded-2xl rounded-br-md px-3.5 py-2 text-sm leading-6 whitespace-pre-wrap", pending.state === "failed" ? "border border-red-line bg-red-bg/50" : "bg-active")}>
+                    <div className={cx("max-w-[85%] rounded-3xl rounded-br-lg px-4 py-2.5 text-sm leading-6 whitespace-pre-wrap", pending.state === "failed" ? "border border-red-line bg-red-bg/50" : "bg-active")}>
                       {pending.text}
                     </div>
                     {pending.state === "sending" ? (
@@ -287,7 +286,7 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
             </div>
           </div>
           <form
-            className="flex-none border-t border-border bg-sheet px-4 py-3"
+            className="flex-none px-4 pb-4 pt-2"
             onSubmit={(e) => {
               e.preventDefault();
               void send(text);
@@ -312,11 +311,11 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
                 }}
                 rows={1}
                 placeholder={evaluation?.status === "Draft" || !evaluation ? "Describe your shipment…" : "Change anything, e.g. “add one more pallet”…"}
-                className="max-h-40 min-h-11 flex-1 resize-none rounded-xl border border-control bg-sheet px-3.5 py-2.5 text-sm leading-6 placeholder:text-faint"
+                className="max-h-40 min-h-12 flex-1 resize-none rounded-3xl bg-raised px-5 py-3 text-sm leading-6 placeholder:text-faint"
                 disabled={loadState === "loading" || loadState === "error" || !history.sessionReady}
                 data-testid="composer"
               />
-              <Button type="submit" variant="primary" className="h-11 px-4" disabled={!text.trim() || pending?.state === "sending" || loadState !== "ready"} data-testid="send">
+              <Button type="submit" variant="primary" className="h-12 px-6" disabled={!text.trim() || pending?.state === "sending" || loadState !== "ready"} data-testid="send">
                 {pending?.state === "sending" ? "Sending…" : "Send"}
               </Button>
             </div>
@@ -325,10 +324,10 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
         </section>
 
         {/* Live booking panel */}
-        <aside aria-label="Booking" className={cx("min-h-0 w-full flex-none overflow-y-auto border-border lg:w-[380px] lg:border-l xl:w-[420px]", tab === "booking" ? "block" : "hidden lg:block")} data-testid="booking-panel">
-          <div className="px-4 pt-4 pb-8">
+        <aside aria-label="Booking" className={cx("min-h-0 w-full flex-none overflow-y-auto rounded-3xl bg-sheet lg:w-[380px] xl:w-[420px]", tab === "booking" ? "block" : "hidden lg:block")} data-testid="booking-panel">
+          <div className="px-5 pt-5 pb-8">
             <div className="flex items-center justify-between gap-2">
-              <h2 className="text-card text-text">Booking</h2>
+              <h2 className="text-heading text-text">Booking</h2>
               <Button size="sm" onClick={() => setEditing(true)} disabled={loadState !== "ready" || pending?.state === "sending"} data-testid="edit-booking">
                 Edit booking
               </Button>
@@ -499,12 +498,12 @@ function MessageBubble({ m }: { m: StoredMessage }) {
   if (m.role === "user")
     return (
       <li className="flex justify-end" data-role="user">
-        <div className="max-w-[85%] rounded-2xl rounded-br-md bg-active px-3.5 py-2 text-sm leading-6 break-words whitespace-pre-wrap text-text">{m.content}</div>
+        <div className="max-w-[85%] rounded-3xl rounded-br-lg bg-active px-4 py-2.5 text-sm leading-6 break-words whitespace-pre-wrap text-text">{m.content}</div>
       </li>
     );
   return (
     <li className="flex gap-2.5" data-role="assistant">
-      <span aria-hidden className="mt-1 grid size-6 flex-none place-items-center rounded-md bg-accent-soft text-caption font-semibold text-accent">
+      <span aria-hidden className="mt-1 grid size-6 flex-none place-items-center rounded-md bg-accent-soft text-caption font-semibold text-accent-ink">
         S
       </span>
       <div className="min-w-0 flex-1 text-sm leading-6 break-words whitespace-pre-wrap text-text">{m.content}</div>

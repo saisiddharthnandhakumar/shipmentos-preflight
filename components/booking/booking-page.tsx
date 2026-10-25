@@ -6,7 +6,7 @@ import { api, ApiClientError, newRequestId } from "@/lib/client/api";
 import { draftReferenceOf } from "@/lib/client/reference";
 import type { BookingSnapshot, PatchOp, TurnResponse } from "@/lib/client/types";
 import { EditBookingDialog } from "../chat/edit-booking";
-import { Button, Notice, Skeleton } from "../ui";
+import { Button, Card, Notice, Skeleton } from "../ui";
 import { CarrierPanel, Collapsible, FactsList, FixList, InputIssues, ItemsTable, NextSteps, PreflightStrip, RuleChecklist, StatusSummary } from "./parts";
 
 /** One booking, whether it came from chat or Excel: what is wrong, what to do, then the details. Edit and save the draft in place. */
@@ -92,8 +92,8 @@ export function BookingPage({ bookingId }: { bookingId: string }) {
 
   return (
     <article className="h-full overflow-y-auto" data-testid="booking-detail">
-      <div className="mx-auto max-w-6xl px-4 py-6 lg:px-8 lg:py-8">
-        <nav aria-label="Breadcrumb" className="mb-3 text-small">
+      <div className="mx-auto max-w-6xl px-4 pt-2 pb-8 lg:px-6">
+        <nav aria-label="Breadcrumb" className="mb-2 text-small">
           <Link href="/bookings" className="text-muted hover:text-text hover:underline">
             ← All bookings
           </Link>
@@ -142,8 +142,8 @@ export function BookingPage({ bookingId }: { bookingId: string }) {
               </div>
             )}
 
-            <div className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-              <div className="space-y-6">
+            <div className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+              <div className="space-y-6 self-start rounded-3xl bg-sheet p-5 sm:p-6">
                 <StatusSummary evaluation={evaluation} />
                 {confirmed && (
                   <div className="rounded-xl border border-pass-line bg-pass-bg px-4 py-3" data-testid="confirmation">
@@ -170,10 +170,11 @@ export function BookingPage({ bookingId }: { bookingId: string }) {
                 </section>
               </div>
 
-              <div className="space-y-1">
-                <Collapsible title="Carrier and price">
+              <div className="space-y-4">
+                <Card tone="dark" title="Carrier and price" icon={<svg viewBox="0 0 16 16" className="size-4" aria-hidden fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1.5 4.5h8v6h-8zM9.5 7h3l2 2v1.5h-5" /><circle cx="4.5" cy="11.5" r="1.2" /><circle cx="11.5" cy="11.5" r="1.2" /></svg>}>
                   <CarrierPanel carrier={evaluation.carrier} status={evaluation.status} timeline={evaluation.timeline} />
-                </Collapsible>
+                </Card>
+                <div className="rounded-3xl bg-sheet px-5 sm:px-6 [&>section:first-child]:border-t-0">
                 <Collapsible title="Shipment details">
                   <FactsList draft={snap.draft} missingKeys={missingKeys} />
                 </Collapsible>
@@ -205,6 +206,7 @@ export function BookingPage({ bookingId }: { bookingId: string }) {
                     </ol>
                   </Collapsible>
                 )}
+                </div>
               </div>
             </div>
           </>

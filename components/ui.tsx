@@ -18,8 +18,8 @@ export function Button({
     <button
       {...rest}
       className={cx(
-        "inline-flex flex-none items-center justify-center gap-1.5 rounded-lg font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-55",
-        size === "sm" ? "h-8 px-3 text-small" : "h-9 px-3.5 text-sm",
+        "inline-flex flex-none items-center justify-center gap-1.5 rounded-full font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-55",
+        size === "sm" ? "h-8 px-3.5 text-small" : "h-10 px-5 text-sm",
         variant === "primary" && "bg-primary text-on-primary hover:bg-primary-hover",
         variant === "secondary" && "border border-control bg-sheet text-text hover:bg-raised",
         variant === "ghost" && "text-muted hover:bg-active hover:text-text",
@@ -97,20 +97,45 @@ export function Skeleton({ className }: { className?: string }) {
   return <span aria-hidden className={cx("block rounded bg-active", className)} />;
 }
 
-export function Card({ title, action, children, className, id }: { title?: ReactNode; action?: ReactNode; children: ReactNode; className?: string; id?: string }) {
+export function Card({ title, action, children, className, id, icon, tone = "light" }: { title?: ReactNode; action?: ReactNode; children: ReactNode; className?: string; id?: string; icon?: ReactNode; tone?: "light" | "dark" }) {
   const hid = useId();
   return (
-    <section aria-labelledby={title ? hid : undefined} id={id} className={cx("rounded-xl border border-border bg-sheet", className)}>
+    <section aria-labelledby={title ? hid : undefined} id={id} className={cx("rounded-3xl p-5 sm:p-6", tone === "dark" ? "on-charcoal dark-card text-text" : "bg-sheet", className)}>
       {title && (
-        <header className="flex min-h-11 items-center justify-between gap-3 px-4 pt-3">
-          <h3 id={hid} className="text-small font-semibold text-text">
-            {title}
-          </h3>
+        <header className="mb-4 flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            {icon && <IconBadge>{icon}</IconBadge>}
+            <h3 id={hid} className="text-card truncate text-text">
+              {title}
+            </h3>
+          </div>
           {action}
         </header>
       )}
-      <div className="px-4 pt-2 pb-4">{children}</div>
+      {children}
     </section>
+  );
+}
+
+/** The round grey chip that sits before a card title. */
+export function IconBadge({ children, className }: { children: ReactNode; className?: string }) {
+  return <span className={cx("grid size-9 flex-none place-items-center rounded-full bg-raised text-text", className)}>{children}</span>;
+}
+
+/** A number as the hero of its card: big figure, small muted unit beside it. */
+export function Figure({ value, unit, size = "figure", className, tone }: { value: ReactNode; unit?: ReactNode; size?: "figure" | "display"; className?: string; tone?: string }) {
+  return (
+    <p className={cx("flex items-baseline gap-1.5", className)}>
+      <span className={cx("num", size === "display" ? "text-display" : "text-figure", tone ?? "text-text")}>{value}</span>
+      {unit && <span className="text-small text-muted">{unit}</span>}
+    </p>
+  );
+}
+
+/** Small lime pill for a delta or share, like "+5%". */
+export function Chip({ children, tone = "lime", className }: { children: ReactNode; tone?: "lime" | "lavender" | "dark"; className?: string }) {
+  return (
+    <span className={cx("inline-flex h-5 items-center rounded-full px-2 text-caption font-medium", tone === "lime" && "bg-accent text-on-accent", tone === "lavender" && "bg-lavender text-[#1c1c1c]", tone === "dark" && "bg-[#1c1c1c] text-white", className)}>{children}</span>
   );
 }
 
@@ -149,7 +174,7 @@ export function ConfirmDialog({
         if (!busy) onCancel();
       }}
       aria-labelledby="confirm-title"
-      className="m-auto w-[min(440px,calc(100vw-32px))] rounded-2xl border border-border bg-sheet p-0 text-text shadow-[0_12px_40px_rgba(0,0,0,0.22)]"
+      className="m-auto w-[min(440px,calc(100vw-32px))] rounded-3xl border border-border bg-sheet p-0 text-text shadow-[0_12px_40px_rgba(0,0,0,0.22)]"
     >
       <div className="p-5">
         <h2 id="confirm-title" className="text-base font-semibold">
@@ -234,7 +259,7 @@ export function PageHeader({ title, description, actions, id }: { title: ReactNo
   return (
     <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
       <div className="min-w-0">
-        <h1 id={id} className="text-title text-text">
+        <h1 id={id} className="text-title text-ink">
           {title}
         </h1>
         {description && <p className="mt-1 max-w-[62ch] text-sm text-muted">{description}</p>}
@@ -262,21 +287,24 @@ const STAT_TONE: Record<string, string> = {
   na: "text-text",
 };
 
-/** A count you can act on: the figure is the biggest thing on the card, the label says what it is. */
-export function Stat({ label, value, tone = "na", glyph, href, hint }: { label: string; value: number | string; tone?: "red" | "amber" | "pass" | "na"; glyph?: GlyphKind; href?: string; hint?: string }) {
+/** A count you can act on: icon chip and label on top, the figure as the biggest thing on the card. */
+export function Stat({ label, value, unit, tone = "na", glyph, href, hint, chip }: { label: string; value: number | string; unit?: string; tone?: "red" | "amber" | "pass" | "na"; glyph?: GlyphKind; href?: string; hint?: string; chip?: ReactNode }) {
   const body = (
     <>
-      <span className="flex items-center gap-1.5 text-small text-muted">
-        {glyph && <Glyph kind={glyph} className={STAT_TONE[tone]} />}
-        {label}
+      <span className="flex items-center gap-3">
+        <IconBadge>{glyph ? <Glyph kind={glyph} className={cx("size-4", STAT_TONE[tone])} /> : null}</IconBadge>
+        <span className="text-card text-text">{label}</span>
       </span>
-      <span className={cx("num mt-2 block text-figure", STAT_TONE[tone])}>{value}</span>
+      <span className="mt-5 flex items-end justify-between gap-2">
+        <Figure value={value} unit={unit} size="display" />
+        {chip}
+      </span>
       {hint && <span className="mt-1 block text-caption text-muted">{hint}</span>}
     </>
   );
-  const cls = "block rounded-xl border border-border bg-sheet p-4";
+  const cls = "block rounded-3xl bg-sheet p-5";
   return href ? (
-    <Link href={href} className={cx(cls, "transition-colors hover:bg-raised")}>
+    <Link href={href} className={cx(cls, "transition-transform hover:-translate-y-0.5")}>
       {body}
     </Link>
   ) : (
@@ -286,7 +314,7 @@ export function Stat({ label, value, tone = "na", glyph, href, hint }: { label: 
 
 export function EmptyState({ title, children, actions }: { title: ReactNode; children?: ReactNode; actions?: ReactNode }) {
   return (
-    <div className="rounded-xl bg-raised px-6 py-10 text-center">
+    <div className="rounded-3xl bg-sheet px-6 py-12 text-center">
       <h2 className="text-heading text-text">{title}</h2>
       {children && <p className="mx-auto mt-1.5 max-w-[48ch] text-sm text-muted">{children}</p>}
       {actions && <div className="mt-5 flex flex-wrap items-center justify-center gap-2">{actions}</div>}
