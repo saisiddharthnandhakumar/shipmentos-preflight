@@ -64,6 +64,11 @@ export function HistorySidebar({ onNavigate }: { onNavigate?: () => void }) {
     setResetting(true);
     try {
       await api("/api/session", { method: "DELETE" });
+      try {
+        localStorage.removeItem("shipmentos.sampled");
+      } catch {
+        /* storage unavailable */
+      }
       await ensureSession(true);
       window.location.replace(new URL("/chat", window.location.origin).href);
     } catch {

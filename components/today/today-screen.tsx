@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { api, ApiClientError } from "@/lib/client/api";
 import type { BookingListItem, BookingSnapshot } from "@/lib/client/types";
 import { useHistory } from "../shell/history-context";
 import { Button, Card, Chip, EmptyState, Figure, Glyph, Notice, PageHeader, Skeleton, Stat, StatusPill, relativeTime } from "../ui";
 
+export const SAMPLED_KEY = "shipmentos.sampled";
 const STATUSES = ["Blocked", "Needs attention", "Ready to submit", "Draft"] as const;
 type Status = (typeof STATUSES)[number];
 type Bucket = { items: BookingListItem[]; more: boolean };
@@ -51,6 +52,29 @@ export function TodayScreen() {
       setSeeding(false);
     }
   }
+
+  // Demo app: a browser that has barely any bookings gets the sample set once, so every screen has data.
+  // The flag stops it coming back after the user deletes data; "Reset my data" clears the flag.
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (!data || seeded.current || history.sessionReady === false) return;
+    const count = STATUSES.reduce((n, st) => n + data[st].items.length, 0);
+    let done = false;
+    try {
+      done = localStorage.getItem(SAMPLED_KEY) === "1";
+    } catch {
+      /* storage unavailable: treat as not yet loaded, once per page view */
+    }
+    if (count >= 6 || done) return;
+    seeded.current = true;
+    try {
+      localStorage.setItem(SAMPLED_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+    void loadSample();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
 
   const total = data ? STATUSES.reduce((n, s) => n + data[s].items.length, 0) : 0;
   const attention = data ? [...data.Blocked.items, ...data["Needs attention"].items].sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt)) : [];
