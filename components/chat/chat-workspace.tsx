@@ -11,7 +11,7 @@ type ImportResult = ({ kind: "booking" } & TurnResponse) | { kind: "batch"; batc
 import { draftReferenceOf } from "@/lib/client/reference";
 import { RULE_DEFINITIONS } from "@/lib/domain/reference";
 import { buildChecklist } from "@/lib/domain/checklist";
-import { choicesFor, type ChoiceOption } from "@/lib/domain/choices";
+import { choicesFor, type ChoiceGroup, type ChoiceOption } from "@/lib/domain/choices";
 import { missingFields } from "@/lib/domain/missing";
 import type { DraftBooking } from "@/lib/domain/schemas";
 import { Checklist } from "./checklist";
@@ -55,6 +55,8 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
   const [text, setText] = useState("");
+  // Tap-to-answer picks held back until every visible group has one, so the chat continues once per round, not per tap.
+  const [picked, setPicked] = useState<Record<string, ChoiceOption>>({});
   const router = useRouter();
   // A new chat opens with the greeting, unless it was started by uploading a spreadsheet.
   const [greet] = useState(() => initialBookingId === null && !hasStashedUpload());
@@ -181,6 +183,17 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
         setPending({ requestId, text: message, state: "failed", retryable: true, ops, error: `Not saved. ${err.message}${hint}` });
       }
     }
+  }
+
+  function pick(groups: ChoiceGroup[], key: string, option: ChoiceOption) {
+    const next = { ...picked };
+    if (next[key]?.label === option.label) delete next[key];
+    else next[key] = option;
+    const chosen = groups.map((g) => next[g.key]);
+    if (chosen.every((o): o is ChoiceOption => Boolean(o))) {
+      setPicked({});
+      void send(chosen.map((o) => o.say).join(". "), undefined, chosen.flatMap((o) => o.ops));
+    } else setPicked(next);
   }
 
   async function uploadFile(file: File) {
@@ -386,18 +399,22 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
                       <div key={g.key} data-choice-group={g.key}>
                         <p className="text-caption font-medium text-muted">{g.prompt}</p>
                         <div className="mt-1.5 flex flex-wrap gap-2">
-                          {g.options.map((o: ChoiceOption) => (
-                            <button
-                              key={o.label}
-                              type="button"
-                              onClick={() => void send(o.say, undefined, o.ops)}
-                              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-control bg-sheet px-3.5 text-small font-medium text-text transition-colors hover:bg-active"
-                              data-choice={o.label}
-                            >
-                              {o.label}
-                              {o.hint && <span className="text-caption font-normal text-muted">{o.hint}</span>}
-                            </button>
-                          ))}
+                          {g.options.map((o: ChoiceOption) => {
+                            const on = picked[g.key]?.label === o.label;
+                            return (
+                              <button
+                                key={o.label}
+                                type="button"
+                                aria-pressed={on}
+                                onClick={() => pick(choices, g.key, o)}
+                                className={cx("inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-small font-medium transition-colors", on ? "border-primary bg-primary text-on-primary" : "border-control bg-sheet text-text hover:bg-active")}
+                                data-choice={o.label}
+                              >
+                                {o.label}
+                                {o.hint && <span className={cx("text-caption font-normal", on ? "text-on-primary/70" : "text-muted")}>{o.hint}</span>}
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     ))}

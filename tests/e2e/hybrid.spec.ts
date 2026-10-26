@@ -137,23 +137,26 @@ test("checklist and tap-to-answer: options for each question, ticks as you go, n
   const quick = page.getByTestId("quick-replies");
   await expect(quick.locator('[data-choice-group="originCity"] [data-choice]')).toHaveCount(4);
   await expect(quick.locator('[data-choice-group="destinationCity"] [data-choice]')).toHaveCount(7);
+  // A tap only marks the option: nothing is sent until every question on screen has an answer.
   await quick.getByRole("button", { name: "Manchester" }).click();
-  await expect(page.getByTestId("transcript")).toContainText("Collecting from Manchester");
-  await expect(checklist.locator('li[data-key="originCity"]')).toHaveAttribute("data-done", "true");
-  await expect(quick.locator('[data-choice-group="originCity"]')).toHaveCount(0);
-
+  await expect(quick.getByRole("button", { name: "Manchester" })).toHaveAttribute("aria-pressed", "true");
   await quick.getByRole("button", { name: /Frankfurt/ }).click();
-  await expect(checklist.locator('li[data-key="destinationCity"]')).toHaveAttribute("data-done", "true");
-  // Destination known: only that country's cities were ever offered next time, and the type question remains.
+  await expect(page.getByTestId("transcript")).not.toContainText("Collecting from Manchester");
+  await expect(checklist.locator('li[data-key="originCity"]')).toHaveAttribute("data-done", "false");
   await quick.getByRole("button", { name: "Warehouse" }).click();
+  await expect(page.getByTestId("transcript")).toContainText("Collecting from Manchester");
+  await expect(page.getByTestId("transcript")).toContainText("Delivering to Frankfurt");
+  await expect(checklist.locator('li[data-key="originCity"]')).toHaveAttribute("data-done", "true");
+  await expect(checklist.locator('li[data-key="destinationCity"]')).toHaveAttribute("data-done", "true");
   await expect(checklist.locator('li[data-key="destinationType"]')).toHaveAttribute("data-done", "true");
   await expect(checklist.locator('li[data-key="deliveryAppointmentBooked"]')).toHaveAttribute("data-done", "false");
 
   // Next: date and priority come as options; seller name is free text so it has none.
   await expect(quick.locator('[data-choice-group="readyToShipDate"] [data-choice]')).toHaveCount(4);
   await quick.getByRole("button", { name: "Fastest" }).click();
-  await expect(checklist.locator('li[data-key="sellerPriority"]')).toHaveAttribute("data-done", "true");
+  await expect(checklist.locator('li[data-key="sellerPriority"]')).toHaveAttribute("data-done", "false");
   await quick.getByRole("button", { name: /In a week/ }).click();
+  await expect(checklist.locator('li[data-key="sellerPriority"]')).toHaveAttribute("data-done", "true");
   await expect(checklist.locator('li[data-key="readyToShipDate"]')).toHaveAttribute("data-done", "true");
   await expect(page.getByTestId("checklist-count")).toContainText("5 of");
   await expect(page.getByTestId("composer")).toBeEnabled();
