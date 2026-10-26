@@ -64,30 +64,34 @@ export function RuleChecklist({ rules, highlight, filter = "all" }: { rules: Rul
                 {s === "pass" || s === "na" ? (
                   <p className="mt-0.5 text-small text-muted">{r.summary}</p>
                 ) : (
-                  <ul className="mt-1.5 space-y-2">
+                  <ul className="mt-1.5 space-y-1.5">
                     {r.findings.map((f, i) => (
-                      <li key={i} className="rounded-lg bg-raised px-3 py-2">
-                        <p className="text-small text-text">{f.message}</p>
-                        {(f.actual || f.expected) && (
-                          <dl className="mt-1.5 grid grid-cols-[68px_1fr] gap-x-2 gap-y-0.5 text-caption">
-                            {f.actual && (
-                              <>
-                                <dt className="text-muted">Actual</dt>
-                                <dd className="num text-text">{f.actual}</dd>
-                              </>
+                      <li key={i}>
+                        <details className="group rounded-lg bg-raised" open={highlight === r.ruleId}>
+                          <summary className="flex cursor-pointer list-none items-center gap-3 rounded-lg px-3 py-2 text-small [&::-webkit-details-marker]:hidden">
+                            {f.actual || f.expected ? (
+                              <span className="num min-w-0 flex-1 text-text">
+                                <span className="text-red-ink">{f.actual ?? "—"}</span>
+                                <span className="mx-1.5 text-muted" aria-hidden>→</span>
+                                <span className="sr-only"> should be </span>
+                                {f.expected ?? "—"}
+                              </span>
+                            ) : (
+                              <span className="min-w-0 flex-1 truncate text-text">{f.message}</span>
                             )}
-                            {f.expected && (
-                              <>
-                                <dt className="text-muted">Expected</dt>
-                                <dd className="num text-text">{f.expected}</dd>
-                              </>
-                            )}
-                          </dl>
-                        )}
-                        <p className="mt-1.5 text-small text-text">
-                          <span className="font-medium">To fix: </span>
-                          {f.fix}
-                        </p>
+                            <span className="flex-none text-caption text-muted group-open:hidden">Details</span>
+                            <svg viewBox="0 0 16 16" className="size-3.5 flex-none text-muted transition-transform group-open:rotate-180" aria-hidden fill="none" stroke="currentColor" strokeWidth="1.5">
+                              <path d="M4 6l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          </summary>
+                          <div className="space-y-1.5 px-3 pb-3 text-small">
+                            <p className="text-muted">{f.message}</p>
+                            <p className="text-text">
+                              <span className="font-medium">To fix: </span>
+                              {f.fix}
+                            </p>
+                          </div>
+                        </details>
                       </li>
                     ))}
                   </ul>
@@ -136,9 +140,26 @@ export function WeightGauge({ carrier }: { carrier: CarrierAssessment }) {
   );
 }
 
-export function CarrierPanel({ carrier, status, timeline }: { carrier: CarrierAssessment; status: string; timeline: Evaluation["timeline"] }) {
+export function CarrierPanel({
+  carrier,
+  status,
+  timeline,
+  onSelect,
+  busy,
+}: {
+  carrier: CarrierAssessment;
+  status: string;
+  timeline: Evaluation["timeline"];
+  /** Pass a key to override, or null to go back to the recommendation. Omit for a read-only panel. */
+  onSelect?: (key: string | null) => void;
+  busy?: boolean;
+}) {
   const chosen = carrier.candidates.find((c) => c.option.key === carrier.chosenKey);
+  const recommended = carrier.candidates.find((c) => c.option.key === carrier.recommendedKey);
+  const overridden = !!recommended && !!chosen && chosen.option.key !== recommended.option.key;
   const tentative = status === "Blocked" || status === "Draft";
+  const canPick = !!onSelect && carrier.candidates.length > 0 && carrier.pallets != null;
+  const delta = (c: (typeof carrier.candidates)[number]) => (recommended ? Math.round((c.totalCostGBP - recommended.totalCostGBP) * 100) / 100 : 0);
   return (
     <div data-testid="carrier-panel">
       {chosen ? (
@@ -146,8 +167,8 @@ export function CarrierPanel({ carrier, status, timeline }: { carrier: CarrierAs
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-caption text-muted">
-                {carrier.selectedKey === chosen.option.key ? "Your chosen carrier" : "Recommended"}
-                {carrier.priority ? ` · ${carrier.priority}` : ""}
+                {overridden ? "Your choice" : "Recommended"}
+                {!overridden && carrier.priority ? ` · ${carrier.priority}` : ""}
                 {tentative ? " · tentative" : ""}
               </p>
               <p className="mt-0.5 text-card text-text">
@@ -158,27 +179,26 @@ export function CarrierPanel({ carrier, status, timeline }: { carrier: CarrierAs
               {formatGBP(chosen.totalCostGBP)}
             </p>
           </div>
-          <dl className="mt-2 grid grid-cols-3 gap-2 text-caption">
-            <div>
-              <dt className="text-muted">Per pallet</dt>
-              <dd className="num text-text">
-                {carrier.pallets} × {formatGBP(chosen.option.pricePerPalletGBP)}
-              </dd>
+          <p className="num mt-2 text-small text-muted">
+            {chosen.option.transitDays} days · {chosen.option.onTimeRatePercent}% on time · {carrier.pallets} × {formatGBP(chosen.option.pricePerPalletGBP)}
+          </p>
+          {!chosen.eligible && <p className="mt-2 text-small text-red-ink">Can&apos;t take {formatKg(carrier.kgPerPallet ?? 0)}/pallet. See R-05.</p>}
+          {overridden && recommended && (
+            <div className="mt-3 flex items-center justify-between gap-3 rounded-lg bg-sheet px-3 py-2 text-small" data-testid="override-note">
+              <span className="text-muted">
+                Overridden · recommended was {recommended.option.carrier} {recommended.option.service}
+              </span>
+              {onSelect && (
+                <button type="button" className="flex-none font-medium text-text underline underline-offset-2 disabled:opacity-50" disabled={busy} onClick={() => onSelect(null)} data-testid="reset-carrier">
+                  Reset
+                </button>
+              )}
             </div>
-            <div>
-              <dt className="text-muted">Transit</dt>
-              <dd className="num text-text">{chosen.option.transitDays} days</dd>
-            </div>
-            <div>
-              <dt className="text-muted">On time</dt>
-              <dd className="num text-text">{chosen.option.onTimeRatePercent}%</dd>
-            </div>
-          </dl>
-          {!chosen.eligible && <p className="mt-2 text-small text-red-ink">This service can&apos;t take {formatKg(carrier.kgPerPallet ?? 0)}/pallet — see R-05.</p>}
+          )}
           {timeline && (
             <p className="mt-2 text-caption text-muted">
-              Proposed collection {formatLong(timeline.proposedCollectionDate)}
-              {timeline.indicativeDeliveryDate ? ` · indicative delivery ${formatLong(timeline.indicativeDeliveryDate)}` : ""}
+              Collect {formatLong(timeline.proposedCollectionDate)}
+              {timeline.indicativeDeliveryDate ? ` · deliver ${formatLong(timeline.indicativeDeliveryDate)}` : ""}
             </p>
           )}
         </div>
@@ -188,36 +208,55 @@ export function CarrierPanel({ carrier, status, timeline }: { carrier: CarrierAs
           {carrier.status === "no_eligible" ? `Suggested: at least ${carrier.requiredPallets} pallets.` : carrier.explanation}
         </p>
       )}
+
+      {canPick && (
+        <fieldset className="mt-4" disabled={busy}>
+          <legend className="mb-2 text-caption text-muted">Carrier options</legend>
+          <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Carrier service">
+            {carrier.candidates.map((c) => {
+              const selected = c.option.key === carrier.chosenKey;
+              const isRec = c.option.key === carrier.recommendedKey;
+              const d = delta(c);
+              return (
+                <button
+                  key={c.option.key}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  disabled={!c.eligible}
+                  title={c.exclusionReason ?? undefined}
+                  onClick={() => !selected && onSelect?.(isRec ? null : c.option.key)}
+                  data-testid={`carrier-option-${c.option.key}`}
+                  className={cx(
+                    "flex flex-col rounded-xl border p-3 text-left transition-colors",
+                    selected ? "border-accent bg-accent/15" : "border-control/60 hover:bg-raised",
+                    !c.eligible && "cursor-not-allowed opacity-50 hover:bg-transparent",
+                  )}
+                >
+                  <span className="flex items-center justify-between gap-2 text-caption">
+                    <span className="font-medium text-text">{c.option.carrier.replace("Carrier ", "")} · {c.option.service.replace("Road ", "")}</span>
+                    {selected && <span aria-hidden className="size-2 rounded-full bg-accent" />}
+                  </span>
+                  <span className="num mt-1 text-card text-text">{formatGBP(c.totalCostGBP)}</span>
+                  <span className="num mt-0.5 text-caption text-muted">
+                    {c.option.transitDays}d · {c.option.onTimeRatePercent}%
+                  </span>
+                  <span className="mt-1 text-caption text-muted">
+                    {!c.eligible ? `Over ${formatNumber(c.option.maxWeightPerPalletKg)} kg limit` : isRec ? "Recommended" : d === 0 ? "Same price" : `${d > 0 ? "+" : "−"}${formatGBP(Math.abs(d))}`}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+      )}
+
       {carrier.status !== "not_evaluable" || carrier.kgPerPallet != null ? <WeightGauge carrier={carrier} /> : null}
-      {(chosen || carrier.status === "no_eligible") && <p className="mt-3 text-small leading-5 text-text">{carrier.explanation}</p>}
-      {carrier.candidates.length > 0 && carrier.pallets != null && (
-        <table className="mt-3 w-full text-caption">
-          <caption className="sr-only">Carrier options on this route</caption>
-          <thead>
-            <tr className="text-left text-muted">
-              <th className="py-1 font-normal">Service</th>
-              <th className="py-1 text-right font-normal">Cost</th>
-              <th className="py-1 text-right font-normal">Days</th>
-              <th className="py-1 text-right font-normal">On time</th>
-              <th className="py-1 text-right font-normal">Max kg</th>
-            </tr>
-          </thead>
-          <tbody>
-            {carrier.candidates.map((c) => (
-              <tr key={c.option.key} className={cx("border-t border-rule", !c.eligible && "text-faint")}>
-                <td className="py-1.5">
-                  <span className={cx(c.option.key === carrier.chosenKey ? "font-medium text-text" : "")}>{c.option.carrier}</span>
-                  <span className="text-muted"> {c.option.service}</span>
-                  {!c.eligible && <span className="block text-caption text-red-ink">Excluded: over weight limit</span>}
-                </td>
-                <td className="num py-1.5 text-right">{formatGBP(c.totalCostGBP)}</td>
-                <td className="num py-1.5 text-right">{c.option.transitDays}</td>
-                <td className="num py-1.5 text-right">{c.option.onTimeRatePercent}%</td>
-                <td className="num py-1.5 text-right">{formatNumber(c.option.maxWeightPerPalletKg)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {(chosen || carrier.status === "no_eligible") && carrier.explanation && (
+        <details className="mt-3 text-small">
+          <summary className="cursor-pointer text-muted hover:text-text">Why this pick</summary>
+          <p className="mt-2 leading-5 text-text">{carrier.explanation}</p>
+        </details>
       )}
     </div>
   );
@@ -328,7 +367,7 @@ export function InputIssues({ issues }: { issues: InputIssue[] }) {
   );
 }
 
-export function StatusSummary({ evaluation, revision, saved }: { evaluation: Evaluation; revision?: number; saved?: "saved" | "saving" | "unsaved" }) {
+export function StatusSummary({ evaluation, revision, saved, hideHeadline }: { evaluation: Evaluation; revision?: number; saved?: "saved" | "saving" | "unsaved"; hideHeadline?: boolean }) {
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2">
@@ -342,7 +381,7 @@ export function StatusSummary({ evaluation, revision, saved }: { evaluation: Eva
           </span>
         )}
       </div>
-      <p className="mt-1.5 text-small text-text" data-testid="headline">{evaluation.headline}</p>
+      {!hideHeadline && <p className="mt-1.5 text-small text-text" data-testid="headline">{evaluation.headline}</p>}
     </div>
   );
 }

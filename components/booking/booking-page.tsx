@@ -136,6 +136,11 @@ export function BookingPage({ bookingId }: { bookingId: string }) {
               </div>
             </header>
 
+            {!editing && editError && (
+              <div className="mt-4">
+                <Notice tone="error">{editError}</Notice>
+              </div>
+            )}
             {notice && (
               <div className="mt-4">
                 <Notice tone="error">{notice}</Notice>
@@ -144,7 +149,7 @@ export function BookingPage({ bookingId }: { bookingId: string }) {
 
             <div className="mt-6 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
               <div className="space-y-6 self-start rounded-3xl bg-sheet p-5 sm:p-6">
-                <StatusSummary evaluation={evaluation} />
+                <StatusSummary evaluation={evaluation} hideHeadline />
                 {confirmed && (
                   <div className="rounded-xl border border-pass-line bg-pass-bg px-4 py-3" data-testid="confirmation">
                     <p className="text-small font-medium text-pass-ink">Saved as a ready-to-submit draft · {draftReferenceOf(snap.booking.id)}</p>
@@ -162,17 +167,26 @@ export function BookingPage({ bookingId }: { bookingId: string }) {
                     <InputIssues issues={evaluation.inputIssues} />
                   </section>
                 )}
-                <section aria-labelledby="next-h">
-                  <h2 id="next-h" className="mb-2 text-heading text-text">
-                    Next steps
-                  </h2>
-                  <NextSteps evaluation={evaluation} />
-                </section>
+                {nothingToFix ? (
+                  <section aria-labelledby="next-h">
+                    <h2 id="next-h" className="mb-2 text-heading text-text">
+                      Next steps
+                    </h2>
+                    <NextSteps evaluation={evaluation} />
+                  </section>
+                ) : (
+                  <details className="text-small">
+                    <summary className="cursor-pointer text-muted hover:text-text">Next steps</summary>
+                    <div className="mt-2">
+                      <NextSteps evaluation={evaluation} />
+                    </div>
+                  </details>
+                )}
               </div>
 
               <div className="space-y-4">
                 <Card tone="dark" title="Carrier and price" icon={<svg viewBox="0 0 16 16" className="size-4" aria-hidden fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1.5 4.5h8v6h-8zM9.5 7h3l2 2v1.5h-5" /><circle cx="4.5" cy="11.5" r="1.2" /><circle cx="11.5" cy="11.5" r="1.2" /></svg>}>
-                  <CarrierPanel carrier={evaluation.carrier} status={evaluation.status} timeline={evaluation.timeline} />
+                  <CarrierPanel carrier={evaluation.carrier} status={evaluation.status} timeline={evaluation.timeline} busy={editBusy} onSelect={(key) => void saveEdit([key ? { op: "set", field: "selectedCarrierKey", value: key } : { op: "remove", field: "selectedCarrierKey" }])} />
                 </Card>
                 <div className="rounded-3xl bg-sheet px-5 sm:px-6 [&>section:first-child]:border-t-0">
                 <Collapsible title="Shipment details">
