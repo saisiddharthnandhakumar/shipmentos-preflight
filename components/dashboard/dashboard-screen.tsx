@@ -1,49 +1,78 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { api, ApiClientError } from "@/lib/client/api";
 import type { BookingListItem, BookingSnapshot } from "@/lib/client/types";
+import { isISODate } from "@/lib/domain/stage";
+import { bookingId, openHref } from "../bookings/bookings-history";
+import { DateRangePicker } from "../date-range-picker";
 import { useHistory } from "../shell/history-context";
-import { Button, Card, Chip, EmptyState, Figure, Glyph, Notice, PageHeader, Skeleton, Stat, StatusPill, relativeTime } from "../ui";
+import { Button, Card, Chip, EmptyState, Figure, Glyph, Notice, PageHeader, Skeleton, Stat, StagePill, relativeTime } from "../ui";
 
 export const SAMPLED_KEY = "shipmentos.sampled";
-const STATUSES = ["Blocked", "Needs attention", "Ready to submit", "Draft"] as const;
-type Status = (typeof STATUSES)[number];
-type Bucket = { items: BookingListItem[]; more: boolean };
-type Buckets = Record<Status, Bucket>;
-
-async function loadBuckets(): Promise<Buckets> {
-  const parts = await Promise.all(
-    STATUSES.map((s) => api<{ items: BookingListItem[]; nextCursor: string | null }>(`/api/bookings?limit=100&status=${encodeURIComponent(s)}`)),
-  );
-  return Object.fromEntries(STATUSES.map((s, i) => [s, { items: parts[i].items, more: parts[i].nextCursor !== null }])) as Buckets;
-}
-
-const countLabel = (b: Bucket) => `${b.items.length}${b.more ? "+" : ""}`;
+type Counts = { all: number; completed: number; sync: number; draft: number };
 
 export function DashboardScreen() {
   const history = useHistory();
-  const [data, setData] = useState<Buckets | null>(null);
+  const params = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const from = isISODate(params.get("from")) ? params.get("from") : null;
+  const to = isISODate(params.get("to")) ? params.get("to") : null;
+  const ranged = Boolean(from || to);
+  const setRange = useCallback(
+    (a: string | null, b: string | null) => {
+      const next = new URLSearchParams(params.toString());
+      if (a) next.set("from", a);
+      else next.delete("from");
+      if (b) next.set("to", b);
+      else next.delete("to");
+      router.replace(`${pathname}${next.size ? `?${next}` : ""}`, { scroll: false });
+    },
+    [params, pathname, router],
+  );
+
+  const [counts, setCounts] = useState<Counts | null>(null);
+  /** Everything in this browser, ignoring the date range: decides between "no bookings yet" and "none in this range". */
+  const [overall, setOverall] = useState<number | null>(null);
+  const [drafts, setDrafts] = useState<BookingListItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
 
   useEffect(() => {
     let alive = true;
-    loadBuckets()
-      .then((d) => alive && (setData(d), setError(null)))
+    const p = new URLSearchParams();
+    if (from) p.set("from", from);
+    if (to) p.set("to", to);
+    const d = new URLSearchParams({ limit: "8", stage: "draft" });
+    if (from) d.set("from", from);
+    if (to) d.set("to", to);
+    Promise.all([
+      api<Counts>(`/api/bookings/summary?${p}`),
+      ranged ? api<Counts>("/api/bookings/summary") : null,
+      api<{ items: BookingListItem[] }>(`/api/bookings?${d}`),
+    ])
+      .then(([c, all, list]) => {
+        if (!alive) return;
+        setCounts(c);
+        setOverall((all ?? c).all);
+        setDrafts(list.items);
+        setError(null);
+      })
       .catch((e) => alive && setError(e instanceof ApiClientError ? e.message : "Couldn't load your bookings."));
     return () => {
       alive = false;
     };
-  }, [reload]);
+  }, [reload, from, to, ranged]);
 
   const [seeding, setSeeding] = useState(false);
   async function loadSample() {
     setSeeding(true);
     try {
       await api("/api/sample", { method: "POST" });
-      setData(null);
+      setCounts(null);
       setReload((n) => n + 1);
     } catch (e) {
       setError(e instanceof ApiClientError ? e.message : "Couldn't load the sample data.");
@@ -56,15 +85,14 @@ export function DashboardScreen() {
   // The flag stops it coming back after the user deletes data; "Reset my data" clears the flag.
   const seeded = useRef(false);
   useEffect(() => {
-    if (!data || seeded.current || history.sessionReady === false) return;
-    const count = STATUSES.reduce((n, st) => n + data[st].items.length, 0);
+    if (overall === null || seeded.current || history.sessionReady === false) return;
     let done = false;
     try {
       done = localStorage.getItem(SAMPLED_KEY) === "1";
     } catch {
       /* storage unavailable: treat as not yet loaded, once per page view */
     }
-    if (count >= 6 || done) return;
+    if (overall >= 6 || done) return;
     seeded.current = true;
     try {
       localStorage.setItem(SAMPLED_KEY, "1");
@@ -73,10 +101,9 @@ export function DashboardScreen() {
     }
     void loadSample();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data]);
+  }, [overall]);
 
-  const total = data ? STATUSES.reduce((n, s) => n + data[s].items.length, 0) : 0;
-  const attention = data ? [...data.Blocked.items, ...data["Needs attention"].items].sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt)) : [];
+  const total = counts?.all ?? 0;
 
   // Client-only: the server render has no date, so it never mismatches.
   const today = useSyncExternalStore(
@@ -86,12 +113,12 @@ export function DashboardScreen() {
   );
 
   const share = (n: number) => (total ? Math.round((n / total) * 100) : 0);
-  const mix = data
+  const rangeQuery = `${from ? `&from=${from}` : ""}${to ? `&to=${to}` : ""}`;
+  const mix = counts
     ? ([
-        { key: "Blocked", n: data.Blocked.items.length, bar: "bg-ink", dot: "bg-ink" },
-        { key: "Needs attention", n: data["Needs attention"].items.length, bar: "bg-lavender", dot: "bg-lavender" },
-        { key: "Ready to submit", n: data["Ready to submit"].items.length, bar: "bg-accent", dot: "bg-accent" },
-        { key: "Draft", n: data.Draft.items.length, bar: "bg-faint", dot: "bg-faint" },
+        { key: "Completed", n: counts.completed, bar: "bg-accent", dot: "bg-accent" },
+        { key: "Sync to ERP", n: counts.sync, bar: "bg-lavender", dot: "bg-lavender" },
+        { key: "Drafts", n: counts.draft, bar: "bg-ink", dot: "bg-ink" },
       ] as const)
     : [];
 
@@ -100,11 +127,11 @@ export function DashboardScreen() {
       <div className="mx-auto max-w-6xl space-y-6 px-4 pt-2 pb-8 lg:px-6">
         <PageHeader
           title="Dashboard"
-          description="What needs your attention before a booking can go to the carrier."
+          description="Where every booking stands, and what still needs finishing."
           actions={
             <>
-              {today && <span className="hidden text-small text-muted sm:inline">{today}</span>}
-              {data && total > 0 && total < 6 && (
+              {today && !ranged && <span className="hidden text-small text-muted sm:inline">{today}</span>}
+              {counts && overall !== null && overall > 0 && overall < 6 && (
                 <button
                   type="button"
                   onClick={() => void loadSample()}
@@ -114,37 +141,29 @@ export function DashboardScreen() {
                   {seeding ? "Loading…" : "Load sample data"}
                 </button>
               )}
-              <Link href="/upload" className="inline-flex h-10 items-center rounded-full bg-sheet px-5 text-sm font-medium text-text transition-colors hover:bg-raised">
-                Upload Excel
-              </Link>
-              <Link href="/new" className="inline-flex h-10 items-center rounded-full bg-primary px-5 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover">
-                New booking
-              </Link>
+              <DateRangePicker from={from} to={to} onChange={setRange} />
             </>
           }
         />
 
         {error ? (
-          <Notice tone="error" action={<button className="underline" onClick={() => { setData(null); setReload((n) => n + 1); }}>Retry</button>}>
+          <Notice tone="error" action={<button className="underline" onClick={() => { setCounts(null); setReload((n) => n + 1); }}>Retry</button>}>
             {error}
           </Notice>
-        ) : !data ? (
+        ) : !counts || !drafts ? (
           <div className="grid gap-4 lg:grid-cols-3" aria-label="Loading your bookings">
             <Skeleton className="h-96 rounded-3xl lg:row-span-2" />
             {[0, 1, 2, 3].map((i) => (
               <Skeleton key={i} className="h-44 rounded-3xl" />
             ))}
           </div>
-        ) : total === 0 ? (
+        ) : overall === 0 ? (
           <EmptyState
             title="No bookings yet"
             actions={
               <>
                 <Link href="/new" className="inline-flex h-10 items-center rounded-full bg-primary px-5 text-sm font-medium text-on-primary hover:bg-primary-hover">
-                  Describe a shipment
-                </Link>
-                <Link href="/upload" className="inline-flex h-10 items-center rounded-full border border-control bg-sheet px-5 text-sm font-medium text-text hover:bg-raised">
-                  Upload a spreadsheet
+                  New booking
                 </Link>
                 <Button variant="ghost" onClick={() => void loadSample()} disabled={seeding}>
                   {seeding ? "Loading…" : "Load sample data"}
@@ -152,18 +171,19 @@ export function DashboardScreen() {
               </>
             }
           >
-            Tell the assistant about a UK to EU pallet shipment, or upload a workbook of bookings. Every booking is checked against ten rules, and nothing is sent to a carrier.
+            Tell the assistant about a UK to EU pallet shipment, fill in a form, or upload a workbook of bookings. Every booking is checked against ten rules, and nothing is sent to a carrier.
           </EmptyState>
         ) : (
           <>
-            <section aria-label="Booking totals" className="grid gap-4 lg:grid-cols-3">
+            {ranged && total === 0 && <Notice>No bookings were updated in this date range. Pick another range, or clear it to see everything.</Notice>}
+            <section aria-label="Booking totals" className="grid gap-4 lg:grid-cols-3" data-testid="dashboard-stats">
               <Card
                 title="Booking mix"
                 className="lg:row-span-2"
                 icon={<svg viewBox="0 0 16 16" className="size-4" aria-hidden fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="6" cy="8" r="4" /><circle cx="10.5" cy="8" r="3" /></svg>}
               >
-                <Figure value={total} unit="bookings in this browser" size="display" />
-                <MixBubbles blocked={mix[0].n} attention={mix[1].n} ready={mix[2].n} />
+                <Figure value={total} unit={ranged ? "bookings in this range" : "bookings in this browser"} size="display" />
+                <MixBubbles completed={counts.completed} sync={counts.sync} drafts={counts.draft} />
                 <ul className="mt-5 space-y-4">
                   {mix.map((m) => (
                     <li key={m.key}>
@@ -181,50 +201,31 @@ export function DashboardScreen() {
                   ))}
                 </ul>
               </Card>
-              <Stat label="Blocked" value={countLabel(data.Blocked)} unit="bookings" tone="red" glyph="red" href="/bookings?status=Blocked" hint="Must be fixed first" chip={<Chip tone="dark">{share(mix[0].n)}%</Chip>} />
-              <Stat label="Needs attention" value={countLabel(data["Needs attention"])} unit="bookings" tone="amber" glyph="amber" href="/bookings?status=Needs%20attention" hint="Worth a check" chip={<Chip tone="lavender">{share(mix[1].n)}%</Chip>} />
-              <Stat label="Ready to submit" value={countLabel(data["Ready to submit"])} unit="bookings" tone="pass" glyph="pass" href="/bookings?status=Ready%20to%20submit" hint="Nothing left to fix" chip={<Chip>{share(mix[2].n)}%</Chip>} />
-              <Stat label="Draft" value={countLabel(data.Draft)} unit="bookings" tone="na" glyph="na" href="/bookings?status=Draft" hint="Still being filled in" />
+              <Stat label="All" value={counts.all} unit="bookings" tone="na" href={`/bookings?tab=all${rangeQuery}`} hint="Every booking" />
+              <Stat label="Completed" value={counts.completed} unit="bookings" tone="pass" glyph="pass" href={`/bookings?tab=completed${rangeQuery}`} hint="Sent to the ERP" chip={<Chip>{share(counts.completed)}%</Chip>} />
+              <Stat label="Sync to ERP" value={counts.sync} unit="bookings" tone="amber" glyph="amber" href={`/bookings?tab=sync${rangeQuery}`} hint="Ready, not sent yet" chip={<Chip tone="lavender">{share(counts.sync)}%</Chip>} />
+              <Stat label="Drafts" value={counts.draft} unit="bookings" tone="na" glyph="na" href={`/bookings?tab=draft${rangeQuery}`} hint="Still being filled in or fixed" chip={<Chip tone="dark">{share(counts.draft)}%</Chip>} />
             </section>
 
             <Card
               tone="dark"
               title="Needs your attention"
               icon={<Glyph kind="red" className="size-4 text-red-ink" />}
-              action={attention.length > 0 ? <Link href="/bookings?status=Blocked" className="text-small font-medium text-accent-ink hover:underline">See all</Link> : undefined}
+              action={counts.draft > 0 ? <Link href={`/bookings?tab=draft${rangeQuery}`} className="text-small font-medium text-accent-ink hover:underline">See all drafts</Link> : undefined}
             >
-              {attention.length === 0 ? (
-                <p className="rounded-2xl bg-pass-bg px-4 py-3 text-sm text-pass-ink">Nothing is blocked and nothing needs a check. You&apos;re up to date.</p>
+              {drafts.length === 0 ? (
+                <p className="rounded-2xl bg-pass-bg px-4 py-3 text-sm text-pass-ink">No drafts waiting. Everything is either ready to sync or already in the ERP.</p>
               ) : (
                 <ul className="-mx-2 divide-y divide-rule" data-testid="attention-list">
-                  {attention.slice(0, 8).map((b, i) => (
+                  {drafts.map((b, i) => (
                     <AttentionRow key={b.id} b={b} loadFix={i < 5} />
                   ))}
                 </ul>
               )}
             </Card>
-
-            {data["Ready to submit"].items.length > 0 && (
-              <Card title="Ready to submit" icon={<Glyph kind="pass" className="size-4 text-pass-ink" />}>
-                <ul className="-mx-2 divide-y divide-rule">
-                  {data["Ready to submit"].items.slice(0, 5).map((b) => (
-                    <li key={b.id}>
-                      <Link href={`/bookings/${b.id}`} className="flex items-center gap-3 rounded-2xl px-2 py-3 transition-colors hover:bg-raised">
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-small font-medium text-text">{b.title}</span>
-                          <span className="block truncate text-caption text-muted">{b.sellerName ?? "Seller not given"}</span>
-                        </span>
-                        <StatusPill status={b.status} className="hidden sm:inline-flex" />
-                        <time dateTime={b.lastActivityAt} className="flex-none text-caption text-muted">{relativeTime(b.lastActivityAt)}</time>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-            )}
           </>
         )}
-        {data && total > 0 && (
+        {counts && overall !== null && overall > 0 && (
           <p className="text-caption text-muted">
             Bookings are kept in this browser for 7 days.{" "}
             <button type="button" className="underline underline-offset-2 hover:text-text" onClick={() => void loadSample()} disabled={seeding}>
@@ -237,15 +238,18 @@ export function DashboardScreen() {
   );
 }
 
-/** Three overlapping circles, area proportional to the count: black blocked, lavender needs attention, lime ready. */
-function MixBubbles({ blocked, attention, ready }: { blocked: number; attention: number; ready: number }) {
+/** Three overlapping circles, area proportional to the count: black drafts, lavender sync to ERP, lime completed. */
+function MixBubbles({ completed, sync, drafts }: { completed: number; sync: number; drafts: number }) {
+  const blocked = drafts;
+  const attention = sync;
+  const ready = completed;
   const max = Math.max(blocked, attention, ready, 1);
   const r = (n: number) => 26 + 62 * Math.sqrt(n / max);
   const rb = r(blocked);
   const ra = r(attention);
   const rr = r(ready);
   return (
-    <svg viewBox="0 0 320 250" className="mt-4 w-full" role="img" aria-label={`${blocked} blocked, ${attention} needs attention, ${ready} ready to submit`}>
+    <svg viewBox="0 0 320 250" className="mt-4 w-full" role="img" aria-label={`${drafts} drafts, ${sync} to sync to the ERP, ${completed} completed`}>
       <circle cx={100} cy={105} r={ra} fill="var(--lavender)" />
       <circle cx={222} cy={100} r={rb} fill="#1c1c1c" stroke="var(--sheet)" strokeWidth="3" />
       <circle cx={168} cy={178} r={rr} fill="var(--accent)" stroke="var(--sheet)" strokeWidth="3" />
@@ -267,9 +271,9 @@ function MixBubbles({ blocked, attention, ready }: { blocked: number; attention:
   );
 }
 
-/** One booking that needs work: what it is, why it is stuck, and the first thing to do. */
+/** One draft that needs work: what it is, what is holding it back, and the first thing to do. */
 function AttentionRow({ b, loadFix }: { b: BookingListItem; loadFix: boolean }) {
-  const [fix, setFix] = useState<string | null>(null);
+  const [fix, setFix] = useState<{ lead: string; text: string } | null>(null);
   useEffect(() => {
     if (!loadFix) return;
     let alive = true;
@@ -279,37 +283,42 @@ function AttentionRow({ b, loadFix }: { b: BookingListItem; loadFix: boolean }) 
         const failing = s.evaluation.rules.filter((r) => r.status === "fail");
         const first = failing.sort((a, b) => (a.severity === b.severity ? a.ruleId.localeCompare(b.ruleId) : a.severity === "Red" ? -1 : 1))[0];
         const f = first?.findings[0];
-        setFix(f ? `${f.fix}` : (s.evaluation.nextSteps[0] ?? s.evaluation.headline));
+        const missing = s.evaluation.missingFields;
+        if (f) setFix({ lead: "To fix: ", text: f.fix });
+        else if (missing.length) setFix({ lead: "Still needed: ", text: `${missing.slice(0, 3).map((m) => m.label).join(", ")}${missing.length > 3 ? ` and ${missing.length - 3} more` : ""}` });
+        else setFix({ lead: "", text: s.evaluation.nextSteps[0] ?? s.evaluation.headline });
       })
       .catch(() => {});
     return () => {
       alive = false;
     };
   }, [b.id, loadFix]);
-  const dest = b.destinationCountry;
+  const to = b.destinationCity ?? b.destinationCountry;
+  const route = b.originCity || to ? `${b.originCity ?? "?"} → ${to ?? "?"}` : "Route not given yet";
   return (
     <li>
-      <Link href={`/bookings/${b.id}`} className="block rounded-2xl px-2 py-3.5 transition-colors hover:bg-active">
+      <Link href={openHref(b)} className="block rounded-2xl px-2 py-3.5 transition-colors hover:bg-active" data-testid="attention-row">
         <span className="flex items-start justify-between gap-3">
           <span className="min-w-0">
-            <span className="block truncate text-small font-medium text-text">{b.title}</span>
+            <span className="block truncate text-small font-medium text-text">
+              {bookingId(b)} · {route}
+            </span>
             <span className="block truncate text-caption text-muted">
-              {b.sellerName ?? "Seller not given"}
-              {dest ? ` · ${dest}` : ""} · {b.source === "chat" ? "Chat" : "Excel"}
+              {b.sellerName ?? "Seller not given"} · {b.source === "chat" ? "Chat" : "Excel"}
             </span>
           </span>
-          <StatusPill status={b.status} />
+          <StagePill stage="draft" />
         </span>
         {fix ? (
           <span className="mt-1.5 line-clamp-2 block text-small text-text">
-            <span className="font-medium">To fix: </span>
-            {fix}
+            {fix.lead && <span className="font-medium">{fix.lead}</span>}
+            {fix.text}
           </span>
         ) : loadFix ? (
           <Skeleton className="mt-2 h-4 w-2/3" />
         ) : null}
         <span className="num mt-1.5 block text-caption text-muted">
-          {b.redCount + b.amberCount > 0 ? `${b.redCount} to fix · ${b.amberCount} to check · ` : "Input problem · "}
+          {b.status === "Blocked" ? `Blocked · ${b.redCount} to fix · ` : "Details missing · "}
           {relativeTime(b.lastActivityAt)}
         </span>
       </Link>

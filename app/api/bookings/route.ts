@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createChatBooking, listBookings } from "@/lib/db/repo";
+import { isISODate, isTab } from "@/lib/domain/stage";
 import { emptyDraft } from "@/lib/domain/schemas";
 import { CreateBookingBody, pageLimit } from "@/lib/server/api-schemas";
 import { evaluateDraft } from "@/lib/server/booking-service";
@@ -19,6 +20,9 @@ export async function GET(req: NextRequest) {
       source: source === "chat" || source === "excel" ? source : null,
       status: ["Draft", "Blocked", "Needs attention", "Ready to submit"].includes(p.get("status") ?? "") ? p.get("status") : null,
       q: p.get("q")?.slice(0, 80) || null,
+      stage: isTab(p.get("stage")) && p.get("stage") !== "all" ? (p.get("stage") as "draft" | "sync" | "completed") : null,
+      from: isISODate(p.get("from")) ? p.get("from") : null,
+      to: isISODate(p.get("to")) ? p.get("to") : null,
     });
     return NextResponse.json(result);
   } catch (err) {

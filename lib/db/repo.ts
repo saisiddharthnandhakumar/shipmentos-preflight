@@ -3,6 +3,7 @@
  * its query by it; a booking UUID alone never authorises anything.
  */
 import { and, asc, desc, eq, gt, ilike, inArray, lt, or, sql, type SQL } from "drizzle-orm";
+import { SENDABLE_STATUSES, type Stage } from "../domain/stage";
 import type { Db } from "./client";
 import {
   bookingItems,
@@ -214,6 +215,8 @@ export type BookingListItem = {
   title: string;
   externalBookingId: string | null;
   status: string;
+  /** Sent to the ERP and unchanged since. */
+  confirmed: boolean;
   redCount: number;
   amberCount: number;
   revision: number;
@@ -238,6 +241,7 @@ const listColumns = {
   redCount: bookings.redCount,
   amberCount: bookings.amberCount,
   revision: bookings.revision,
+  confirmedRevision: bookings.confirmedRevision,
   messageCount: bookings.messageCount,
   importBatchId: bookings.importBatchId,
   sellerName: bookings.sellerName,
@@ -250,8 +254,59 @@ const listColumns = {
   createdAt: bookings.createdAt,
 };
 
-function toListItem(r: { lastActivityAt: Date; createdAt: Date } & Omit<BookingListItem, "lastActivityAt" | "createdAt">): BookingListItem {
-  return { ...r, lastActivityAt: r.lastActivityAt.toISOString(), createdAt: r.createdAt.toISOString() };
+function toListItem({ confirmedRevision, ...r }: { lastActivityAt: Date; createdAt: Date; confirmedRevision: number | null } & Omit<BookingListItem, "lastActivityAt" | "createdAt" | "confirmed">): BookingListItem {
+  return { ...r, confirmed: confirmedRevision !== null && confirmedRevision === r.revision, lastActivityAt: r.lastActivityAt.toISOString(), createdAt: r.createdAt.toISOString() };
+}
+
+// ─── Stages (Drafts / Sync to ERP / Completed) ────────────────────────────────
+const isCompleted = sql`${bookings.confirmedRevision} = ${bookings.revision}`;
+const notCompleted = sql`${bookings.confirmedRevision} is distinct from ${bookings.revision}`;
+const sendable = inArray(bookings.status, [...SENDABLE_STATUSES]);
+const stageCond: Record<Stage, SQL | undefined> = {
+  completed: isCompleted,
+  sync: and(notCompleted, sendable),
+  draft: and(notCompleted, sql`${bookings.status} not in (${sql.join(SENDABLE_STATUSES.map((x) => sql`${x}`), sql`, `)})`),
+};
+/** Inclusive London calendar-day range on the booking's last activity. */
+function dayRange(from?: string | null, to?: string | null): (SQL | undefined)[] {
+  const day = sql`(${bookings.lastActivityAt} at time zone 'Europe/London')::date`;
+  return [from ? sql`${day} >= ${from}::date` : undefined, to ? sql`${day} <= ${to}::date` : undefined];
+}
+/** Chat drafts with no messages are not real bookings yet. */
+const visible = or(eq(bookings.source, "excel"), gt(bookings.messageCount, 0), gt(bookings.revision, 0));
+
+export type StageCounts = { all: number; completed: number; sync: number; draft: number };
+export async function stageCounts(db: Exec, sessionId: string, opts: { from?: string | null; to?: string | null } = {}): Promise<StageCounts> {
+  const [r] = await db
+    .select({
+      all: sql<number>`count(*)::int`,
+      completed: sql<number>`(count(*) filter (where ${isCompleted}))::int`,
+      sync: sql<number>`(count(*) filter (where ${stageCond.sync}))::int`,
+      draft: sql<number>`(count(*) filter (where ${stageCond.draft}))::int`,
+    })
+    .from(bookings)
+    .where(and(eq(bookings.sessionId, sessionId), visible, ...dayRange(opts.from, opts.to)));
+  return r;
+}
+
+/** Deletes one owned booking of any source (items, messages, revisions, evaluations cascade). */
+export async function deleteBooking(db: Db, sessionId: string, bookingId: string): Promise<boolean> {
+  const deleted = await db.delete(bookings).where(and(eq(bookings.id, bookingId), eq(bookings.sessionId, sessionId))).returning({ id: bookings.id });
+  return deleted.length === 1;
+}
+
+/**
+ * Give a booking its own name (its Booking ID), or clear it to go back to the generated reference.
+ * Not a content change: no new revision, and an ERP send stays valid.
+ */
+export async function renameBooking(db: Db, sessionId: string, bookingId: string, name: string | null): Promise<boolean> {
+  const row = await getOwnedBooking(db, sessionId, bookingId);
+  if (!row) return false;
+  await db
+    .update(bookings)
+    .set({ externalBookingId: name, title: bookingTitle({ originCity: row.originCity as DraftBooking["originCity"], destinationCity: row.destinationCity, destinationCountry: row.destinationCountry as DraftBooking["destinationCountry"], externalBookingId: name }), updatedAt: new Date(), lastActivityAt: new Date() })
+    .where(and(eq(bookings.id, bookingId), eq(bookings.sessionId, sessionId)));
+  return true;
 }
 
 /** Previous chats: only chat-sourced threads that have at least one message. */
@@ -271,13 +326,14 @@ export async function listChats(db: Exec, sessionId: string, opts: { cursor?: st
 export async function listBookings(
   db: Exec,
   sessionId: string,
-  opts: { cursor?: string | null; limit: number; source?: "chat" | "excel" | null; status?: string | null; q?: string | null; batchId?: string | null },
+  opts: { cursor?: string | null; limit: number; source?: "chat" | "excel" | null; status?: string | null; q?: string | null; batchId?: string | null; stage?: Stage | null; from?: string | null; to?: string | null },
 ) {
   const conds: (SQL | undefined)[] = [eq(bookings.sessionId, sessionId), activityBefore(decodeCursor(opts.cursor))];
   if (opts.source) conds.push(eq(bookings.source, opts.source));
-  // Chat drafts with no messages are not real history yet.
-  conds.push(or(eq(bookings.source, "excel"), gt(bookings.messageCount, 0), gt(bookings.revision, 0)));
+  conds.push(visible);
   if (opts.status) conds.push(eq(bookings.status, opts.status));
+  if (opts.stage) conds.push(stageCond[opts.stage]);
+  conds.push(...dayRange(opts.from, opts.to));
   if (opts.batchId) conds.push(eq(bookings.importBatchId, opts.batchId));
   if (opts.q) {
     const like = `%${opts.q.replace(/[%_\\]/g, (m) => `\\${m}`)}%`;

@@ -44,6 +44,24 @@ export function Glyph({ kind, className }: { kind: GlyphKind; className?: string
   );
 }
 
+/** The seller-facing stage: Draft, Sync to ERP (sendable, not sent yet) or Completed (sent to the ERP). */
+export function StagePill({ stage, className }: { stage: "draft" | "sync" | "completed"; className?: string }) {
+  const style = { draft: "bg-na-bg text-na-ink", sync: "bg-accent-soft text-accent-ink", completed: "bg-pass-bg text-pass-ink" }[stage];
+  const label = { draft: "Draft", sync: "Sync to ERP", completed: "Completed" }[stage];
+  return (
+    <span className={cx("inline-flex h-6 flex-none items-center gap-1 rounded-full px-2.5 text-caption font-medium whitespace-nowrap", style, className)} data-stage={stage}>
+      {stage === "sync" ? (
+        <svg viewBox="0 0 12 12" aria-hidden className="size-2.5 flex-none" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 9.5v-7M3 5.2l3-3 3 3" />
+        </svg>
+      ) : (
+        <Glyph kind={stage === "completed" ? "pass" : "na"} />
+      )}
+      {label}
+    </span>
+  );
+}
+
 export type StatusName = "Draft" | "Blocked" | "Needs attention" | "Ready to submit";
 
 const STATUS_STYLE: Record<string, { cls: string; glyph: GlyphKind }> = {

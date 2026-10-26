@@ -63,8 +63,10 @@ test("chats persist: create two, reopen by URL, continue, refresh, stay private"
   await page.getByRole("link", { name: "All bookings" }).click();
   await expect(page.getByTestId("booking-row")).toHaveCount(5);
   await expect(page.locator('[data-testid="booking-row"][data-source="excel"]')).toHaveCount(3);
-  await page.getByTestId("source-chat").click();
-  await expect(page.getByTestId("booking-row")).toHaveCount(2);
+  // The finished chat and the three clean Excel bookings are ready to sync; the half-described chat is a draft.
+  await expect(page.getByTestId("tab-count-sync")).toHaveText("4");
+  await page.getByTestId("tab-draft").click();
+  await expect(page.getByTestId("booking-row")).toHaveCount(1);
 });
 
 test("sidebar: Dashboard, no chat shortcuts or history, New booking goes to the three options", async ({ page }) => {

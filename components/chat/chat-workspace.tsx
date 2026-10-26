@@ -15,6 +15,8 @@ import { choicesFor, type ChoiceOption } from "@/lib/domain/choices";
 import { missingFields } from "@/lib/domain/missing";
 import type { DraftBooking } from "@/lib/domain/schemas";
 import { Checklist } from "./checklist";
+import { BookingName } from "./booking-name";
+import { stageOf } from "@/lib/domain/stage";
 import { useHistory } from "../shell/history-context";
 import { CarrierPanel, Collapsible, FactsList, FixList, ItemsTable, PreflightStrip, RuleChecklist, StatusSummary } from "../booking/parts";
 import { Button, ConfirmDialog, Notice, Skeleton, cx } from "../ui";
@@ -516,6 +518,15 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
                 Edit booking
               </Button>
             </div>
+            {snap && (
+              <BookingName
+                bookingId={snap.booking.id}
+                name={snap.booking.externalBookingId}
+                fallback={draftReferenceOf(snap.booking.id)}
+                disabled={loadState !== "ready" || pending?.state === "sending" || confirmed}
+                onSaved={(name) => setSnap((cur) => (cur ? { ...cur, booking: { ...cur.booking, externalBookingId: name }, draft: { ...cur.draft, externalBookingId: name } } : cur))}
+              />
+            )}
             {!evaluation ? (
               loadState === "loading" ? (
                 <div className="mt-3 space-y-2">
@@ -559,6 +570,22 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
               <div className="mt-3 space-y-5">
                 <StatusSummary evaluation={evaluation} revision={snap?.booking.revision} saved={saveState} />
                 <PreflightStrip rules={evaluation.rules} onSelect={(id) => document.getElementById(`rule-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })} />
+
+                {!confirmed && snap && (
+                  <div className="flex flex-wrap items-center gap-2" data-testid="save-draft-row">
+                    <Button
+                      onClick={() => {
+                        const stage = stageOf({ status: evaluation.status, confirmed: false });
+                        router.push(`/bookings?tab=${stage}&saved=${snap.booking.id}`);
+                      }}
+                      disabled={pending?.state === "sending" || upload?.state === "reading"}
+                      data-testid="save-draft"
+                    >
+                      Save as draft
+                    </Button>
+                    <span className="text-caption text-muted">Everything is saved as you go. This takes you to your list.</span>
+                  </div>
+                )}
 
                 {(confirmed || canConfirm) && (
                   <div className={cx("rounded-xl border p-3", confirmed ? "border-pass-line bg-pass-bg" : "border-border")} data-testid="confirmation">
