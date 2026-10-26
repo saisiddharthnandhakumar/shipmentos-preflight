@@ -351,17 +351,27 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
                     ))}
                   </ul>
                   <div className="mt-5">
-                    <Collapsible title="How the 10 checks work" defaultOpen={false}>
-                      <ul className="divide-y divide-rule">
-                        {RULE_DEFINITIONS.map((r) => (
-                          <li key={r.ruleId} className="flex items-start gap-2 py-2">
-                            <span className="w-10 flex-none pt-px font-mono text-caption text-muted">{r.ruleId}</span>
-                            <span className="min-w-0 flex-1 text-small text-text">{r.description}</span>
-                            <span className={cx("flex-none pt-px text-caption font-medium", r.severity === "Red" ? "text-red-ink" : "text-amber-ink")}>{r.severity === "Red" ? "Must fix" : "Check"}</span>
-                          </li>
-                        ))}
-                      </ul>
-                      <p className="mt-3 text-caption text-muted">Must fix stops the shipment until it&apos;s resolved; Check should be looked at. Carriers A, B and C are ranked by your priority after a weight-per-pallet check.</p>
+                    <Collapsible title="What we check before you ship" defaultOpen={false}>
+                      <p className="text-small text-muted">Ten checks run automatically as you give details. Nothing has been checked yet.</p>
+                      {([
+                        ["Red", "Blocking checks", "If one of these fails, the shipment shouldn't leave until it's fixed."],
+                        ["Amber", "Advisory checks", "If one of these fails, you can still ship, but double-check first."],
+                      ] as const).map(([sev, heading, blurb]) => (
+                        <div key={sev} className="mt-4">
+                          <h4 className="text-small font-semibold text-text">{heading}</h4>
+                          <p className="text-caption text-muted">{blurb}</p>
+                          <ul className="mt-1 divide-y divide-rule">
+                            {RULE_DEFINITIONS.filter((r) => r.severity === sev).map((r) => (
+                              <li key={r.ruleId} className="flex items-start gap-2 py-2">
+                                <span aria-hidden className="mt-1.5 size-2 flex-none rounded-full border border-muted" />
+                                <span className="w-10 flex-none pt-px font-mono text-caption text-muted">{r.ruleId}</span>
+                                <span className="min-w-0 flex-1 text-small text-text">{r.description}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                      <p className="mt-3 text-caption text-muted">Carriers A, B and C are then ranked by your priority, after a weight-per-pallet check.</p>
                     </Collapsible>
                   </div>
                 </div>

@@ -12,7 +12,7 @@ const CELL: Record<string, string> = {
   amber: "bg-amber-bg text-amber-ink",
   na: "bg-na-bg text-na-ink",
 };
-const WORD: Record<string, string> = { pass: "Pass", red: "Must fix", amber: "Check", na: "Not evaluable" };
+const WORD: Record<string, string> = { pass: "Pass", red: "Fix needed", amber: "Check this", na: "Not evaluable" };
 
 /** Signature element: all ten rulebook checks at a glance. */
 export function PreflightStrip({ rules, onSelect }: { rules: RuleResult[]; onSelect?: (id: string) => void }) {
@@ -59,7 +59,7 @@ export function RuleChecklist({ rules, highlight, filter = "all" }: { rules: Rul
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span className="text-small font-medium text-text">{r.title}</span>
                   <RuleChip state={s} />
-                  {s !== "pass" && s !== "na" ? null : <span className="text-caption text-faint">{r.severity === "Red" ? "Must fix" : "Check"} if broken</span>}
+                  {s !== "pass" && s !== "na" ? null : <span className="text-caption text-faint">{r.severity === "Red" ? "Blocks shipping if wrong" : "Worth a check if wrong"}</span>}
                 </div>
                 {s === "pass" || s === "na" ? (
                   <p className="mt-0.5 text-small text-muted">{r.summary}</p>

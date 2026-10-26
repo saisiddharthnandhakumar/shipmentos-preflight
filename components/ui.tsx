@@ -72,8 +72,8 @@ export function ruleState(r: { status: string; severity: string }): RuleState {
 
 const RULE_STYLE: Record<RuleState, { cls: string; label: string }> = {
   pass: { cls: "bg-pass-bg text-pass-ink", label: "Pass" },
-  red: { cls: "bg-red-bg text-red-ink", label: "Must fix" },
-  amber: { cls: "bg-amber-bg text-amber-ink", label: "Check" },
+  red: { cls: "bg-red-bg text-red-ink", label: "Fix needed" },
+  amber: { cls: "bg-amber-bg text-amber-ink", label: "Check this" },
   na: { cls: "bg-na-bg text-na-ink", label: "Not evaluable" },
 };
 
@@ -89,7 +89,7 @@ export function RuleChip({ state, className }: { state: RuleState; className?: s
 
 export function SeverityTag({ severity }: { severity: "Red" | "Amber" }) {
   return (
-    <span className={cx("font-mono text-caption font-medium", severity === "Red" ? "text-red-ink" : "text-amber-ink")}>{severity === "Red" ? "Must fix" : "Check"}</span>
+    <span className={cx("font-mono text-caption font-medium", severity === "Red" ? "text-red-ink" : "text-amber-ink")}>{severity === "Red" ? "Fix needed" : "Check this"}</span>
   );
 }
 
