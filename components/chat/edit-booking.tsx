@@ -5,7 +5,7 @@ import { DESTINATION_CITIES, DESTINATION_COUNTRIES, DESTINATION_TYPES, ITEM_ORIG
 import type { DraftBooking, PatchOp } from "@/lib/client/types";
 import { Button, Notice } from "../ui";
 
-type ItemForm = { itemId: string | null; sku: string; description: string; hsCode: string; quantityUnits: string; unitPriceGBP: string; unitsPerCarton: string; cartons: string; unitWeightKg: string; countryOfOrigin: string; removed?: boolean };
+export type ItemForm = { itemId: string | null; sku: string; description: string; hsCode: string; quantityUnits: string; unitPriceGBP: string; unitsPerCarton: string; cartons: string; unitWeightKg: string; countryOfOrigin: string; removed?: boolean };
 
 const s = (v: unknown) => (v === null || v === undefined ? "" : String(v));
 const ITEM_KEYS = ["sku", "description", "hsCode", "quantityUnits", "unitPriceGBP", "unitsPerCarton", "cartons", "unitWeightKg", "countryOfOrigin"] as const;
@@ -33,80 +33,51 @@ function summarise(ops: PatchOp[]): string[] {
   });
 }
 
-/** Manual editor: produces the same typed patch operations as the chat, saved via the version-safe PATCH. */
-export function EditBookingDialog({ open, draft, onClose, onSubmit, busy, error }: { open: boolean; draft: DraftBooking; onClose: () => void; onSubmit: (ops: PatchOp[]) => void; busy: boolean; error: string | null }) {
-  const ref = useRef<HTMLDialogElement>(null);
-  const [b, setB] = useState<Record<string, string>>({});
-  const [items, setItems] = useState<ItemForm[]>([]);
-  const [pending, setPending] = useState<PatchOp[] | null>(null);
+export type FormValues = Record<string, string>;
 
-  useEffect(() => {
-    const d = ref.current;
-    if (!d) return;
-    if (open) {
-      setPending(null);
-      setB({
-        sellerName: s(draft.sellerName),
-        originCity: s(draft.originCity),
-        destinationCity: s(draft.destinationCity),
-        destinationType: s(draft.destinationType),
-        readyToShipDate: s(draft.readyToShipDate),
-        sellerPriority: s(draft.sellerPriority),
-        pallets: s(draft.pallets),
-        cartons: s(draft.cartons),
-        totalDeclaredValueGBP: s(draft.totalDeclaredValueGBP),
-        totalGrossWeightKg: s(draft.totalGrossWeightKg),
-        deliveryAppointmentBooked: draft.deliveryAppointmentBooked == null ? "" : draft.deliveryAppointmentBooked ? "yes" : "no",
-      });
-      setItems(draft.items.map((i) => ({ itemId: i.itemId, ...Object.fromEntries(ITEM_KEYS.map((k) => [k, s(i[k])])) }) as ItemForm));
-      if (!d.open) d.showModal();
-    } else if (d.open) d.close();
-  }, [open, draft]);
+const FIELD_KEYS = ["sellerName", "originCity", "destinationCity", "destinationType", "readyToShipDate", "sellerPriority", "pallets", "cartons", "totalDeclaredValueGBP", "totalGrossWeightKg"] as const;
 
-  function build(): PatchOp[] {
-    const ops: PatchOp[] = [];
-    const cur: Record<string, string> = {
-      sellerName: s(draft.sellerName),
-      originCity: s(draft.originCity),
-      destinationCity: s(draft.destinationCity),
-      destinationType: s(draft.destinationType),
-      readyToShipDate: s(draft.readyToShipDate),
-      sellerPriority: s(draft.sellerPriority),
-      pallets: s(draft.pallets),
-      cartons: s(draft.cartons),
-      totalDeclaredValueGBP: s(draft.totalDeclaredValueGBP),
-      totalGrossWeightKg: s(draft.totalGrossWeightKg),
-      deliveryAppointmentBooked: draft.deliveryAppointmentBooked == null ? "" : draft.deliveryAppointmentBooked ? "yes" : "no",
-    };
-    for (const [k, v] of Object.entries(b)) {
-      if (v === cur[k]) continue;
-      const field = k as Extract<PatchOp, { op: "set" }>["field"];
-      if (!v.trim()) ops.push({ op: "remove", field });
-      else if (k === "deliveryAppointmentBooked") ops.push({ op: "set", field, value: v === "yes" });
-      else ops.push({ op: "set", field, value: toValue(k, v) });
-    }
-    for (const it of items) {
-      const orig = it.itemId ? draft.items.find((x) => x.itemId === it.itemId) : null;
-      if (it.removed && it.itemId) {
-        ops.push({ op: "removeItem", target: { itemId: it.itemId } });
-        continue;
-      }
-      if (it.removed) continue;
-      const changes: Record<string, string | number | null> = {};
-      for (const k of ITEM_KEYS) {
-        const before = orig ? s(orig[k]) : "";
-        if (it[k] !== before || (!orig && it[k])) {
-          // Blank HS code / origin means "seller confirms blank" so the rules can flag it.
-          changes[k] = (k === "hsCode" || k === "countryOfOrigin") && !it[k].trim() ? "" : toValue(k, it[k]);
-        }
-      }
-      if (!Object.keys(changes).length) continue;
-      if (orig) ops.push({ op: "updateItem", target: { itemId: orig.itemId }, changes: changes as never });
-      else ops.push({ op: "addItem", item: changes as never });
-    }
-    return ops;
+/** Form text for each field of a draft ("" = unknown). */
+export function formFromDraft(draft: DraftBooking): { b: FormValues; items: ItemForm[] } {
+  const b: FormValues = Object.fromEntries(FIELD_KEYS.map((k) => [k, s(draft[k])]));
+  b.deliveryAppointmentBooked = draft.deliveryAppointmentBooked == null ? "" : draft.deliveryAppointmentBooked ? "yes" : "no";
+  return { b, items: draft.items.map((i) => ({ itemId: i.itemId, ...Object.fromEntries(ITEM_KEYS.map((k) => [k, s(i[k])])) }) as ItemForm) };
+}
+
+/** The typed patch operations that turn `draft` into what the form now says. */
+export function buildOps(draft: DraftBooking, b: FormValues, items: ItemForm[]): PatchOp[] {
+  const ops: PatchOp[] = [];
+  const cur = formFromDraft(draft).b;
+  for (const [k, v] of Object.entries(b)) {
+    if (v === cur[k]) continue;
+    const field = k as Extract<PatchOp, { op: "set" }>["field"];
+    if (!v.trim()) ops.push({ op: "remove", field });
+    else if (k === "deliveryAppointmentBooked") ops.push({ op: "set", field, value: v === "yes" });
+    else ops.push({ op: "set", field, value: toValue(k, v) });
   }
+  for (const it of items) {
+    const orig = it.itemId ? draft.items.find((x) => x.itemId === it.itemId) : null;
+    if (it.removed && it.itemId) {
+      ops.push({ op: "removeItem", target: { itemId: it.itemId } });
+      continue;
+    }
+    if (it.removed) continue;
+    const changes: Record<string, string | number | null> = {};
+    for (const k of ITEM_KEYS) {
+      const before = orig ? s(orig[k]) : "";
+      if (it[k] !== before || (!orig && it[k])) {
+        // Blank HS code / origin means "seller confirms blank" so the rules can flag it.
+        changes[k] = (k === "hsCode" || k === "countryOfOrigin") && !it[k].trim() ? "" : toValue(k, it[k]);
+      }
+    }
+    if (!Object.keys(changes).length) continue;
+    if (orig) ops.push({ op: "updateItem", target: { itemId: orig.itemId }, changes: changes as never });
+    else ops.push({ op: "addItem", item: changes as never });
+  }
+  return ops;
+}
 
+export function BookingFormFields({ b, setB, items, setItems }: { b: FormValues; setB: (v: FormValues) => void; items: ItemForm[]; setItems: (v: ItemForm[]) => void }) {
   const input = "h-9 w-full rounded-lg border border-control bg-sheet px-2.5 text-small";
   const field = (key: string, label: string, el?: React.ReactNode) => (
     <label className="block">
@@ -125,56 +96,7 @@ export function EditBookingDialog({ open, draft, onClose, onSubmit, busy, error 
   const allCities = DESTINATION_COUNTRIES.flatMap((c) => DESTINATION_CITIES[c].map((city) => city));
 
   return (
-    <dialog
-      ref={ref}
-      aria-labelledby="edit-title"
-      onCancel={(e) => {
-        e.preventDefault();
-        if (!busy) onClose();
-      }}
-      className="m-auto max-h-[92dvh] w-[min(860px,calc(100vw-24px))] rounded-2xl border border-border bg-sheet p-0 text-text shadow-[0_12px_40px_rgba(0,0,0,0.22)]"
-    >
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (pending) return onSubmit(pending);
-          const ops = build();
-          if (ops.length) setPending(ops);
-          else onClose();
-        }}
-        className="relative flex max-h-[92dvh] flex-col"
-      >
-        {pending && (
-          <div role="alertdialog" aria-labelledby="edit-confirm-title" className="absolute inset-0 z-10 flex flex-col justify-center gap-4 rounded-2xl bg-sheet px-6 py-6">
-            <h3 id="edit-confirm-title" className="text-heading">
-              Update your conversation?
-            </h3>
-            <p className="text-small text-muted">
-              Saving adds these changes to the chat. The assistant will thank you for them and ask for anything still missing.
-            </p>
-            <ul className="list-disc space-y-1 pl-5 text-small">
-              {summarise(pending).map((line) => (
-                <li key={line}>{line}</li>
-              ))}
-            </ul>
-            {error && <Notice tone="error">{error}</Notice>}
-            <div className="flex justify-end gap-2">
-              <Button type="button" onClick={() => setPending(null)} disabled={busy}>
-                Keep editing
-              </Button>
-              <Button type="submit" variant="primary" disabled={busy} autoFocus>
-                {busy ? "Saving…" : "Save and continue"}
-              </Button>
-            </div>
-          </div>
-        )}
-        <header className="border-b border-border px-5 py-4">
-          <h2 id="edit-title" className="text-heading">
-            Edit booking
-          </h2>
-          <p className="mt-0.5 text-small text-muted">Changes are checked against all 10 rules and saved as a new revision. Leave a field blank if it&apos;s unknown.</p>
-        </header>
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+    <>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             {field("sellerName", "Seller name")}
             {field("originCity", "Collect from", select("originCity", ORIGIN_CITIES))}
@@ -246,6 +168,83 @@ export function EditBookingDialog({ open, draft, onClose, onSubmit, busy, error 
               + Add item line
             </Button>
           </div>
+    </>
+  );
+}
+
+/** Manual editor: produces the same typed patch operations as the chat, saved via the version-safe PATCH. */
+export function EditBookingDialog({ open, draft, onClose, onSubmit, busy, error }: { open: boolean; draft: DraftBooking; onClose: () => void; onSubmit: (ops: PatchOp[]) => void; busy: boolean; error: string | null }) {
+  const ref = useRef<HTMLDialogElement>(null);
+  const [b, setB] = useState<Record<string, string>>({});
+  const [items, setItems] = useState<ItemForm[]>([]);
+  const [pending, setPending] = useState<PatchOp[] | null>(null);
+
+  useEffect(() => {
+    const d = ref.current;
+    if (!d) return;
+    if (open) {
+      // Reset the form from the latest draft each time the dialog opens.
+      /* eslint-disable react-hooks/set-state-in-effect */
+      setPending(null);
+      setB(formFromDraft(draft).b);
+      setItems(formFromDraft(draft).items);
+      /* eslint-enable react-hooks/set-state-in-effect */
+      if (!d.open) d.showModal();
+    } else if (d.open) d.close();
+  }, [open, draft]);
+
+  return (
+    <dialog
+      ref={ref}
+      aria-labelledby="edit-title"
+      onCancel={(e) => {
+        e.preventDefault();
+        if (!busy) onClose();
+      }}
+      className="m-auto max-h-[92dvh] w-[min(860px,calc(100vw-24px))] rounded-2xl border border-border bg-sheet p-0 text-text shadow-[0_12px_40px_rgba(0,0,0,0.22)]"
+    >
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (pending) return onSubmit(pending);
+          const ops = buildOps(draft, b, items);
+          if (ops.length) setPending(ops);
+          else onClose();
+        }}
+        className="relative flex max-h-[92dvh] flex-col"
+      >
+        {pending && (
+          <div role="alertdialog" aria-labelledby="edit-confirm-title" className="absolute inset-0 z-10 flex flex-col justify-center gap-4 rounded-2xl bg-sheet px-6 py-6">
+            <h3 id="edit-confirm-title" className="text-heading">
+              Update your conversation?
+            </h3>
+            <p className="text-small text-muted">
+              Saving adds these changes to the chat. The assistant will thank you for them and ask for anything still missing.
+            </p>
+            <ul className="list-disc space-y-1 pl-5 text-small">
+              {summarise(pending).map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+            {error && <Notice tone="error">{error}</Notice>}
+            <div className="flex justify-end gap-2">
+              <Button type="button" onClick={() => setPending(null)} disabled={busy}>
+                Keep editing
+              </Button>
+              <Button type="submit" variant="primary" disabled={busy} autoFocus>
+                {busy ? "Saving…" : "Save and continue"}
+              </Button>
+            </div>
+          </div>
+        )}
+        <header className="border-b border-border px-5 py-4">
+          <h2 id="edit-title" className="text-heading">
+            Edit booking
+          </h2>
+          <p className="mt-0.5 text-small text-muted">Changes are checked against all 10 rules and saved as a new revision. Leave a field blank if it&apos;s unknown.</p>
+        </header>
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          <BookingFormFields b={b} setB={setB} items={items} setItems={setItems} />
           {error && (
             <div className="mt-4">
               <Notice tone="error">{error}</Notice>

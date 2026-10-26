@@ -22,7 +22,7 @@ async function loadBuckets(): Promise<Buckets> {
 
 const countLabel = (b: Bucket) => `${b.items.length}${b.more ? "+" : ""}`;
 
-export function TodayScreen() {
+export function DashboardScreen() {
   const history = useHistory();
   const [data, setData] = useState<Buckets | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +43,6 @@ export function TodayScreen() {
     setSeeding(true);
     try {
       await api("/api/sample", { method: "POST" });
-      void history.refreshChats();
       setData(null);
       setReload((n) => n + 1);
     } catch (e) {
@@ -100,7 +99,7 @@ export function TodayScreen() {
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-6xl space-y-6 px-4 pt-2 pb-8 lg:px-6">
         <PageHeader
-          title="Today"
+          title="Dashboard"
           description="What needs your attention before a booking can go to the carrier."
           actions={
             <>
@@ -118,7 +117,7 @@ export function TodayScreen() {
               <Link href="/upload" className="inline-flex h-10 items-center rounded-full bg-sheet px-5 text-sm font-medium text-text transition-colors hover:bg-raised">
                 Upload Excel
               </Link>
-              <Link href="/chat?new=today" className="inline-flex h-10 items-center rounded-full bg-primary px-5 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover">
+              <Link href="/new" className="inline-flex h-10 items-center rounded-full bg-primary px-5 text-sm font-medium text-on-primary transition-colors hover:bg-primary-hover">
                 New booking
               </Link>
             </>
@@ -141,7 +140,7 @@ export function TodayScreen() {
             title="No bookings yet"
             actions={
               <>
-                <Link href="/chat?new=today" className="inline-flex h-10 items-center rounded-full bg-primary px-5 text-sm font-medium text-on-primary hover:bg-primary-hover">
+                <Link href="/new" className="inline-flex h-10 items-center rounded-full bg-primary px-5 text-sm font-medium text-on-primary hover:bg-primary-hover">
                   Describe a shipment
                 </Link>
                 <Link href="/upload" className="inline-flex h-10 items-center rounded-full border border-control bg-sheet px-5 text-sm font-medium text-text hover:bg-raised">

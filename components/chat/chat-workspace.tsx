@@ -1,19 +1,26 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api, ApiClientError, newRequestId } from "@/lib/client/api";
 import type { BookingSnapshot, MessagesResponse, PatchOp, StoredMessage, TurnResponse } from "@/lib/client/types";
+
+type UploadState = { name: string; state: "reading" | "failed"; error?: string };
+type ImportResult = ({ kind: "booking" } & TurnResponse) | { kind: "batch"; batchId: string; total: number; filename: string };
 import { draftReferenceOf } from "@/lib/client/reference";
 import { RULE_DEFINITIONS } from "@/lib/domain/reference";
 import { useHistory } from "../shell/history-context";
 import { CarrierPanel, Collapsible, FactsList, FixList, ItemsTable, PreflightStrip, RuleChecklist, StatusSummary } from "../booking/parts";
-import { Button, Notice, Skeleton, cx } from "../ui";
+import { Button, ConfirmDialog, Notice, Skeleton, cx } from "../ui";
+import { hasStashedUpload, takeStashedUpload, xlsxProblem } from "@/lib/client/pending-upload";
 import { VoiceButton, type VoiceStatus } from "../voice-button";
 import { SendToErpButton } from "../booking/send-to-erp";
 import { EditBookingDialog } from "./edit-booking";
 
 type Pending = { requestId: string; text: string; state: "sending" | "failed"; error?: string; retryable: boolean };
+
+const FIELD_KEYS = ["sellerName", "originCity", "destinationCity", "destinationType", "readyToShipDate", "sellerPriority", "pallets", "cartons", "totalDeclaredValueGBP", "totalGrossWeightKg", "deliveryAppointmentBooked"] as const;
 
 const GREETING: StoredMessage = {
   id: "greeting",
@@ -41,7 +48,12 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
   const [text, setText] = useState("");
-  const [started, setStarted] = useState(false);
+  const router = useRouter();
+  // A new chat opens with the greeting, unless it was started by uploading a spreadsheet.
+  const [greet] = useState(() => initialBookingId === null && !hasStashedUpload());
+  const [upload, setUpload] = useState<UploadState | null>(null);
+  const [replacing, setReplacing] = useState<{ file: File; hadFile: boolean } | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
   const [voice, setVoice] = useState<VoiceStatus>(null);
   const [tab, setTab] = useState<"chat" | "booking">("chat");
   const [editing, setEditing] = useState(false);
@@ -83,15 +95,15 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
     };
   }, [initialBookingId, history.sessionReady, reload]);
 
-  // Focus the message box once, as soon as it is both shown and enabled (the session can still be starting).
+  // Focus the message box once it is usable (the session can still be starting).
   const composerUsable = loadState === "ready" && history.sessionReady;
-  const focusedAfterStart = useRef(false);
+  const focusedOnce = useRef(false);
   useEffect(() => {
-    if (started && composerUsable && !focusedAfterStart.current) {
-      focusedAfterStart.current = true;
+    if (greet && composerUsable && !focusedOnce.current) {
+      focusedOnce.current = true;
       composer.current?.focus();
     }
-  }, [started, composerUsable]);
+  }, [greet, composerUsable]);
 
   useLayoutEffect(() => {
     const el = scroller.current;
@@ -129,7 +141,6 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
     setSnap(r.snapshot);
     stickToBottom.current = true;
     setMessages((prev) => [...prev, ...r.messages.filter((m) => !prev.some((p) => p.id === m.id))]);
-    void history.refreshChats();
   }
 
   async function send(raw: string, retryOf?: Pending) {
@@ -163,6 +174,57 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
       }
     }
   }
+
+  async function uploadFile(file: File) {
+    setUpload({ name: file.name, state: "reading" });
+    stickToBottom.current = true;
+    try {
+      const id = await ensureBooking();
+      const form = new FormData();
+      form.append("file", file);
+      form.append("expectedRevision", String(snap?.booking.revision ?? 0));
+      form.append("requestId", newRequestId());
+      const r = await api<ImportResult>(`/api/chats/${id}/import`, { method: "POST", form });
+      if (r.kind === "batch") {
+        router.push(`/upload/${r.batchId}`);
+        return;
+      }
+      applyTurn(r);
+      setUpload(null);
+    } catch (e) {
+      const err = e instanceof ApiClientError ? e : new ApiClientError(0, "UNKNOWN", "Something went wrong.");
+      if (err.code === "STALE_REVISION") {
+        const latest = (err.details as { snapshot?: BookingSnapshot } | undefined)?.snapshot;
+        if (latest) setSnap(latest);
+        setUpload({ name: file.name, state: "failed", error: "This booking changed in another tab, so the file wasn't read. The latest version is loaded — upload it again if you still want it." });
+      } else setUpload({ name: file.name, state: "failed", error: err.message });
+    }
+  }
+
+  function pickFile(file: File | undefined) {
+    if (!file) return;
+    const problem = xlsxProblem(file);
+    if (problem) {
+      setVoice({ text: problem, tone: "error" });
+      return;
+    }
+    setVoice(null);
+    const hadFile = Boolean(snap?.revisions.some((r) => r.source === "import"));
+    const hasDetails = snap ? snap.draft.items.length > 0 || FIELD_KEYS.some((k) => snap.draft[k] !== null && snap.draft[k] !== undefined) : false;
+    if (hadFile || hasDetails) setReplacing({ file, hadFile });
+    else void uploadFile(file);
+  }
+
+  // Started from the New booking page with a spreadsheet: read it as soon as the session is ready.
+  const autoUpload = useRef(false);
+  useEffect(() => {
+    if (autoUpload.current || !history.sessionReady || initialBookingId) return;
+    const file = takeStashedUpload();
+    autoUpload.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- kick off the hand-off upload once
+    if (file) void uploadFile(file);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [history.sessionReady]);
 
   async function saveEdit(ops: PatchOp[]) {
     setEditBusy(true);
@@ -214,10 +276,9 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
   const saveState = pending?.state === "sending" ? "saving" : pending?.state === "failed" ? "unsaved" : "saved";
   const confirmed = snap?.booking.confirmedRevision != null && snap.booking.confirmedRevision === snap.booking.revision;
   const canConfirm = evaluation && (evaluation.status === "Ready to submit" || evaluation.status === "Needs attention") && !confirmed;
-  const empty = loadState === "ready" && messages.length === 0 && !pending;
-  const showStart = empty && !started;
+  const empty = loadState === "ready" && messages.length === 0 && !pending && !upload;
   // The opening message is local: nothing is created or listed in history until the seller actually sends something.
-  const showGreeting = started && !olderCursor && loadState === "ready";
+  const showGreeting = greet && !olderCursor && loadState === "ready";
 
   return (
     <div className="flex h-full min-h-0 flex-col px-3 pb-3 lg:px-6 lg:pb-6">
@@ -245,15 +306,7 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
             stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
           }}>
             <div className="mx-auto w-full max-w-[720px] px-4 py-6">
-              <h1 className={cx("text-title text-ink", !showStart && "sr-only")}>{snap?.booking.title && snap.booking.title !== "New shipment" ? snap.booking.title : "Book a shipment"}</h1>
-              {showStart && (
-                <div data-testid="chat-empty">
-                  <p className="mt-1 max-w-[56ch] text-sm text-muted">
-                    Say where it&apos;s going, what&apos;s in it, how many pallets and when it&apos;s ready. I&apos;ll fill in the booking and ask only for what&apos;s missing.
-                  </p>
-                  <p className="mt-4 text-caption text-muted">Prefer a form? <button className="font-medium text-accent-ink underline-offset-2 hover:underline" onClick={() => setEditing(true)}>Fill it in by hand</button>. Have a spreadsheet? <Link href="/upload" className="font-medium text-accent-ink underline-offset-2 hover:underline">Upload Excel</Link>.</p>
-                </div>
-              )}
+              <h1 className="sr-only">{snap?.booking.title && snap.booking.title !== "New shipment" ? snap.booking.title : "Book a shipment"}</h1>
               {loadState === "loading" && (
                 <div className="space-y-4" aria-label="Loading conversation">
                   <Skeleton className="ml-auto h-12 w-2/3" />
@@ -275,8 +328,8 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
               )}
               <ol className="space-y-4" data-testid="transcript" aria-live="polite" aria-relevant="additions">
                 {showGreeting && <MessageBubble m={GREETING} />}
-                {started && empty && (
-                  <li data-testid="examples" className="pl-[34px]">
+                {greet && empty && (
+                  <li data-testid="chat-empty" className="pl-[34px]">
                     <p className="text-small font-medium text-text">Try one of these</p>
                     <div className="mt-2 space-y-2">
                       {EXAMPLES.map((ex) => (
@@ -314,20 +367,39 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
                     )}
                   </li>
                 )}
+                {upload && (
+                  <>
+                    <li className="flex justify-end" data-testid="upload-message">
+                      <div className="max-w-[85%] rounded-3xl rounded-br-lg bg-active px-4 py-2.5 text-sm leading-6 break-words text-text">Uploaded {upload.name}</div>
+                    </li>
+                    <li className="flex gap-2.5" data-testid="upload-status">
+                      <span aria-hidden className="mt-1 grid size-6 flex-none place-items-center rounded-md bg-accent-soft text-caption font-semibold text-accent-ink">
+                        S
+                      </span>
+                      {upload.state === "reading" ? (
+                        <p className="text-sm leading-6 text-muted" role="status">
+                          Reading your spreadsheet and extracting the booking details…
+                        </p>
+                      ) : (
+                        <div className="min-w-0 flex-1 text-sm leading-6" role="alert">
+                          <p className="text-red-ink">{upload.error}</p>
+                          <div className="mt-1.5 flex gap-2">
+                            <Button size="sm" onClick={() => fileInput.current?.click()}>
+                              Choose another file
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => setUpload(null)}>
+                              Dismiss
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </li>
+                  </>
+                )}
               </ol>
             </div>
           </div>
-          {showStart ? (
-            <div className="flex-none px-4 pb-4 pt-2">
-              <div className="mx-auto w-full max-w-[720px]">
-                <Button variant="primary" className="h-12 w-full text-base" onClick={() => setStarted(true)} data-testid="get-started">
-                  Get started
-                </Button>
-                <p className="mt-1.5 text-caption text-faint">AI reads your words; every check, price and date is calculated by fixed rules. Nothing is booked with a carrier.</p>
-              </div>
-            </div>
-          ) : (
-            <form
+          <form
               className="flex-none px-4 pb-4 pt-2"
               onSubmit={(e) => {
                 e.preventDefault();
@@ -335,6 +407,32 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
               }}
             >
               <div className="mx-auto flex w-full max-w-[720px] items-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => fileInput.current?.click()}
+                  disabled={loadState !== "ready" || !history.sessionReady || pending?.state === "sending" || upload?.state === "reading"}
+                  aria-label="Upload an Excel file"
+                  title="Upload an Excel file (.xlsx)"
+                  data-testid="attach-file"
+                  className="grid size-12 flex-none place-items-center rounded-full bg-raised text-text transition-colors hover:bg-active disabled:cursor-not-allowed disabled:opacity-55"
+                >
+                  <svg viewBox="0 0 24 24" className="size-5" aria-hidden fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m21 11.5-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6l7.9-7.9" />
+                  </svg>
+                </button>
+                <input
+                  ref={fileInput}
+                  type="file"
+                  accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  className="sr-only"
+                  tabIndex={-1}
+                  aria-hidden
+                  data-testid="attach-input"
+                  onChange={(e) => {
+                    pickFile(e.target.files?.[0]);
+                    e.target.value = "";
+                  }}
+                />
                 <label className="sr-only" htmlFor="composer">
                   Message
                 </label>
@@ -365,15 +463,14 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
                   }}
                   disabled={loadState !== "ready" || !history.sessionReady || pending?.state === "sending"}
                 />
-                <Button type="submit" variant="primary" className="h-12 px-6" disabled={!text.trim() || pending?.state === "sending" || loadState !== "ready"} data-testid="send">
+                <Button type="submit" variant="primary" className="h-12 px-6" disabled={!text.trim() || pending?.state === "sending" || upload?.state === "reading" || loadState !== "ready"} data-testid="send">
                   {pending?.state === "sending" ? "Sending…" : "Send"}
                 </Button>
               </div>
               <p className={cx("mx-auto mt-1.5 max-w-[720px] text-caption", voice ? (voice.tone === "error" ? "text-red-ink" : "text-text") : "text-faint")} role="status" data-testid="voice-status">
                 {voice?.text ?? "AI reads your words; every check, price and date is calculated by fixed rules. Nothing is booked with a carrier."}
               </p>
-            </form>
-          )}
+          </form>
         </section>
 
         {/* Live booking panel */}
@@ -510,6 +607,30 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
           </div>
         </aside>
       </div>
+
+      <ConfirmDialog
+        open={Boolean(replacing)}
+        title={replacing?.hadFile ? "Replace the uploaded file?" : "Replace the details in this booking?"}
+        body={
+          replacing?.hadFile ? (
+            <p>
+              There&apos;s already a file in this chat. Do you want to continue? Everything currently in this booking will be removed and replaced with the details from <strong className="font-medium text-text">{replacing?.file.name}</strong>.
+            </p>
+          ) : (
+            <p>
+              This chat already has booking details. Reading <strong className="font-medium text-text">{replacing?.file.name}</strong> will remove them and replace them with the file&apos;s details.
+            </p>
+          )
+        }
+        confirmLabel="Continue and replace"
+        danger
+        onCancel={() => setReplacing(null)}
+        onConfirm={() => {
+          const file = replacing?.file;
+          setReplacing(null);
+          if (file) void uploadFile(file);
+        }}
+      />
 
       {snap || !bookingId ? (
         <EditBookingDialog

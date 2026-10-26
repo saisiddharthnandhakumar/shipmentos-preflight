@@ -122,7 +122,7 @@ export const chatTurnRequests = pgTable("chat_turn_requests", {
   id: uuid("id").primaryKey().defaultRandom(),
   bookingId: uuid("booking_id").notNull().references(() => bookings.id, { onDelete: "cascade" }),
   requestId: text("request_id").notNull(),
-  kind: text("kind", { enum: ["chat", "edit", "confirm"] }).notNull(),
+  kind: text("kind", { enum: ["chat", "edit", "confirm", "import"] }).notNull(),
   expectedRevision: integer("expected_revision").notNull(),
   appliedRevision: integer("applied_revision"),
   responseJson: jsonb("response_json"),

@@ -1,8 +1,6 @@
-import type { Metadata } from "next";
-import { TodayScreen } from "@/components/today/today-screen";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "Today" };
-
-export default function TodayPage() {
-  return <TodayScreen />;
+/** Old name of the Dashboard; kept so bookmarks keep working. */
+export default function TodayRedirect() {
+  redirect("/dashboard");
 }

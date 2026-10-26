@@ -166,3 +166,46 @@ export function statusLine(e: Evaluation): string {
 export function welcomeMessage(): string {
   return "Hi! Tell me about your shipment in your own words — where it's going, what's in it, how many pallets, when it's ready. I'll fill in the booking, ask only for what's missing, and check it against the 10 pre-flight rules.";
 }
+
+/**
+ * The assistant's message after a workbook is read into a chat: what was found, what is still missing
+ * and the next question. Everything comes from the parsed draft and the rule engine, never the model.
+ */
+export function composeImportSummary(r: { draft: DraftBooking; evaluation: Evaluation; filename: string; issues: { severity: string; message: string; code?: string; sheet?: string }[]; replaced: boolean }): string {
+  const { draft: b, evaluation: e } = r;
+  const found: string[] = [];
+  const to = b.destinationCity ?? b.destinationCountry;
+  if (b.originCity || to) found.push(`Route: ${b.originCity ?? "?"} → ${to ?? "?"}${b.destinationType ? ` (${b.destinationType})` : ""}`);
+  if (b.sellerName) found.push(`Seller: ${b.sellerName}`);
+  if (b.readyToShipDate) found.push(`Ready to ship: ${formatUK(b.readyToShipDate)}`);
+  if (b.sellerPriority) found.push(`Priority: ${b.sellerPriority}`);
+  if (b.deliveryAppointmentBooked !== null) found.push(`Delivery appointment: ${b.deliveryAppointmentBooked ? "booked" : "not booked"}`);
+  const load = [
+    b.pallets ? `${b.pallets} pallet${b.pallets === 1 ? "" : "s"}` : null,
+    b.cartons ? `${b.cartons} carton${b.cartons === 1 ? "" : "s"}` : null,
+    b.totalGrossWeightKg ? formatKg(b.totalGrossWeightKg) : null,
+    b.totalDeclaredValueGBP ? `declared ${formatGBP(b.totalDeclaredValueGBP)}` : null,
+  ].filter(Boolean);
+  if (load.length) found.push(load.join(" · "));
+  if (b.items.length) found.push(`${b.items.length} item${b.items.length === 1 ? "" : "s"}: ${b.items.slice(0, 6).map((i) => i.sku ?? i.description ?? "unnamed").join(", ")}${b.items.length > 6 ? ` +${b.items.length - 6} more` : ""}`);
+
+  const bookingMissing = e.missingFields.filter((m) => !m.itemId).map((m) => m.label);
+  const itemMissing = new Map<string, string[]>();
+  for (const m of e.missingFields.filter((m) => m.itemId)) {
+    const it = b.items.find((i) => i.itemId === m.itemId);
+    const name = it?.sku ?? it?.description ?? "an item";
+    itemMissing.set(name, [...(itemMissing.get(name) ?? []), ITEM_FIELD_LABELS[m.field as keyof typeof ITEM_FIELD_LABELS] ?? m.label]);
+  }
+  const missing = [...bookingMissing.map((l) => `• ${l}`), ...[...itemMissing].slice(0, 6).map(([n, ls]) => `• ${n}: ${ls.join(", ")}`)];
+  const problems = r.issues.filter((i) => i.severity !== "info" && !(i.code === "MISSING_VALUE" && i.sheet === "Bookings")).slice(0, 4).map((i) => `• ${i.message}`);
+
+  const parts = [`I've read ${r.filename} and filled in the booking.${r.replaced ? " The earlier details in this chat were replaced." : ""}`];
+  parts.push(found.length ? `Found:\n${found.map((f) => `• ${f}`).join("\n")}` : "I didn't find any shipment details in that file.");
+  if (missing.length) parts.push(`Still missing:\n${missing.join("\n")}`);
+  if (problems.length) parts.push(`Problems in the file:\n${problems.join("\n")}`);
+  const flagged = e.rules.filter((x) => x.status === "fail");
+  if (flagged.length)
+    parts.push(`Flagged by the checks (${e.redCount} to fix, ${e.amberCount} to check):\n${flagged.slice(0, 4).map((x) => `• ${x.ruleId}: ${x.findings[0]?.message ?? x.summary}`).join("\n")}${flagged.length > 4 ? `\n• +${flagged.length - 4} more` : ""}`);
+  parts.push(e.missingFields.length ? questionFor(nextQuestionFields(e.missingFields), b) : e.status === "Draft" ? "Tell me anything you'd like to add or change." : statusLine(e));
+  return parts.join("\n\n");
+}

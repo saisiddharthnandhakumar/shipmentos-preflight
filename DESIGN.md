@@ -40,7 +40,7 @@ beside it). Deltas and shares use `Chip` (lime, lavender or dark pill). `Stat` i
 **Vocabulary.** Booking status: Blocked / Needs attention / Ready to submit / Draft. Rule results: Must fix (rulebook Red)
 and Check (rulebook Amber). The domain data and the engine headline still say Red and Amber.
 
-**Screens.** Today is home (booking mix bubbles and bars, four stat cards, a dark "Needs your attention" card). A booking, from
+**Screens.** Dashboard is home (booking mix bubbles and bars, four stat cards, a dark "Needs your attention" card). A booking, from
 chat or Excel, opens at `/bookings/[id]`: status and "Fix these first" lead in one card; the carrier and price sit in the
 dark card; details follow. Chat is two cards: conversation and live booking.
 

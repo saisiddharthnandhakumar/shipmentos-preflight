@@ -346,7 +346,7 @@ export type CommitInput = {
   bookingId: string;
   expectedRevision: number;
   requestId: string;
-  kind: "chat" | "edit" | "confirm";
+  kind: "chat" | "edit" | "confirm" | "import";
   before: DraftBooking;
   after: DraftBooking;
   patch: unknown;

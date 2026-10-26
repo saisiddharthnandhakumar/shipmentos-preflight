@@ -116,4 +116,15 @@ async function main() {
   );
 }
 
-main();
+async function single() {
+  // One booking that is deliberately incomplete (no seller, no ready date, an item without HS code or origin),
+  // so reading it into a chat has something to say about what is missing.
+  await write(
+    "single-incomplete.xlsx",
+    [["BK-301", null, "Manchester", "United Kingdom", "Frankfurt", "Germany", "Warehouse", null, "Cheapest", 3, 90, 5400, "GBP", 620, "Yes"]],
+    [["BK-301", "MUG-01", "Ceramic coffee mug, 350 ml", null, 1080, 5, 12, 90, 0.5, null]],
+    { template: true },
+  );
+}
+
+main().then(single);

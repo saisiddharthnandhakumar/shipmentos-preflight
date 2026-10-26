@@ -13,7 +13,9 @@ import {
 import { todayUK } from "../domain/dates";
 import { missingFields } from "../domain/missing";
 import { applyPatch, type Change } from "../domain/patch";
-import { composeReply, statusLine } from "../domain/reply";
+import { composeImportSummary, composeReply, statusLine } from "../domain/reply";
+import { parseWorkbook } from "../import/parse-xlsx";
+import { importWorkbookBytes } from "./import-service";
 import type { ChatPatch, PatchOp } from "../domain/schemas";
 import { bookingSnapshot, evaluateDraft, type BookingSnapshot } from "./booking-service";
 import { ApiError } from "./http";
@@ -155,4 +157,74 @@ export async function runTurn(input: TurnInput): Promise<TurnResponse> {
 
 function conflict(snapshot: BookingSnapshot | null) {
   return new ApiError(409, "STALE_REVISION", "This booking changed in another tab or request. The latest version has been loaded — please re-check and resend.", { snapshot });
+}
+
+export type ImportTurnResult = ({ kind: "booking" } & TurnResponse) | { kind: "batch"; batchId: string; total: number; filename: string };
+
+/**
+ * Read a workbook into this chat. One booking in the file replaces the chat's booking with it (no AI,
+ * rules re-run) and the assistant summarises what is there and what is missing. A file holding several
+ * bookings can't be one conversation, so it is stored as an upload batch instead.
+ */
+export async function runImportTurn(input: { db: Db; sessionId: string; bookingId: string; expectedRevision: number; requestId: string; bytes: Buffer; filename: string }): Promise<ImportTurnResult> {
+  const { db, sessionId, bookingId, expectedRevision, requestId, bytes, filename } = input;
+  const loaded = await loadBooking(db, sessionId, bookingId);
+  if (!loaded) throw new ApiError(404, "NOT_FOUND", "That booking was not found in this browser session.");
+  if (loaded.row.source !== "chat") throw new ApiError(400, "CHAT_UNSUPPORTED", "Files can only be read into a chat booking.");
+
+  const prior = await findCompletedRequest(db, sessionId, bookingId, requestId);
+  if (prior) return { kind: "booking", ...(prior as TurnResponse), replayed: true };
+  if (loaded.row.revision !== expectedRevision) throw conflict(await bookingSnapshot(db, sessionId, bookingId));
+
+  const parsed = await parseWorkbook(bytes, () => crypto.randomUUID());
+  if (!parsed.bookings.length) {
+    const why = parsed.issues.find((i) => i.severity === "error")?.message ?? "It has no booking rows with data.";
+    throw new ApiError(422, "NO_BOOKINGS", `I couldn't find a booking in that file. ${why}`);
+  }
+  if (parsed.bookings.length > 1) {
+    const saved = await importWorkbookBytes(db, sessionId, bytes, filename);
+    return { kind: "batch", batchId: saved.batchId, total: parsed.bookings.length, filename: saved.filename };
+  }
+
+  const one = parsed.bookings[0];
+  const before = loaded.draft;
+  const after = one.draft;
+  const issues = [...parsed.issues, ...one.issues];
+  const evaluation = await evaluateDraft(db, after, one.issues);
+  const hadData = Object.entries(before).some(([k, v]) => !["originCountry", "currency", "readyDateNote"].includes(k) && (Array.isArray(v) ? v.length > 0 : v !== null && v !== undefined));
+  const changedFields = (Object.keys(after) as (keyof typeof after)[]).filter((k) => JSON.stringify(after[k]) !== JSON.stringify(before[k]));
+  const messages = [
+    { role: "user" as const, content: `Uploaded ${filename}` },
+    { role: "assistant" as const, content: composeImportSummary({ draft: after, evaluation, filename, issues, replaced: hadData }), meta: { status: evaluation.status, import: true } },
+  ];
+  try {
+    const result = await commitBookingChange(db, {
+      sessionId,
+      bookingId,
+      expectedRevision,
+      requestId,
+      kind: "import",
+      before,
+      after,
+      patch: { file: filename, bookingRow: one.sourceRow },
+      changedFields,
+      evaluation,
+      messages,
+      buildResponse: async (revision, stored, tx): Promise<TurnResponse> => ({
+        bookingId,
+        revision,
+        replayed: false,
+        messages: stored,
+        changes: [],
+        warnings: [],
+        snapshot: (await bookingSnapshot(tx, sessionId, bookingId))!,
+      }),
+    });
+    return { kind: "booking", ...(result.response as TurnResponse), replayed: result.replayed };
+  } catch (err) {
+    if (err instanceof ConflictError) throw conflict(await bookingSnapshot(db, sessionId, bookingId));
+    if (err instanceof NotFoundError) throw new ApiError(404, "NOT_FOUND", err.message);
+    if (err instanceof LimitError) throw new ApiError(409, "LIMIT_REACHED", err.message);
+    throw err;
+  }
 }

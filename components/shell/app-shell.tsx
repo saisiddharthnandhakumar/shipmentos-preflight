@@ -70,7 +70,7 @@ function Shell({ children }: { children: ReactNode }) {
             type="button"
             onClick={() => setDrawer(true)}
             className="grid size-10 place-items-center rounded-full bg-sheet text-text transition-colors hover:bg-raised lg:hidden"
-            aria-label="Open chat history"
+            aria-label="Open menu"
             data-testid="open-history"
           >
             <svg viewBox="0 0 16 16" className="size-4" aria-hidden fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -81,7 +81,7 @@ function Shell({ children }: { children: ReactNode }) {
             type="button"
             onClick={toggleRail}
             className="hidden size-10 place-items-center rounded-full bg-sheet text-text transition-colors hover:bg-raised lg:grid"
-            aria-label={collapsed ? "Show chat history" : "Hide chat history"}
+            aria-label={collapsed ? "Show sidebar" : "Hide sidebar"}
             aria-pressed={!collapsed}
             data-testid="toggle-rail"
           >
@@ -148,7 +148,7 @@ function Shell({ children }: { children: ReactNode }) {
         </main>
       </div>
 
-      <Drawer open={drawer} onClose={() => setDrawer(false)} label="Chat history" side="left">
+      <Drawer open={drawer} onClose={() => setDrawer(false)} label="Menu" side="left">
         <div className="on-charcoal h-full bg-app">
           <HistorySidebar onNavigate={() => setDrawer(false)} />
         </div>

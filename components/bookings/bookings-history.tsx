@@ -94,7 +94,7 @@ export function BookingsHistory() {
           title="All bookings"
           description="Every booking from your chats and Excel uploads in this browser, most recently active first."
           actions={
-            <Link href="/chat?new=bookings" className="inline-flex h-9 items-center rounded-lg bg-primary px-3.5 text-sm font-medium text-on-primary hover:bg-primary-hover">
+            <Link href="/new" className="inline-flex h-9 items-center rounded-lg bg-primary px-3.5 text-sm font-medium text-on-primary hover:bg-primary-hover">
               New booking
             </Link>
           }
@@ -151,7 +151,7 @@ export function BookingsHistory() {
                 title="No bookings yet"
                 actions={
                   <>
-                    <Link href="/chat?new=bookings" className="inline-flex h-9 items-center rounded-lg bg-primary px-3.5 text-sm font-medium text-on-primary hover:bg-primary-hover">
+                    <Link href="/new" className="inline-flex h-9 items-center rounded-lg bg-primary px-3.5 text-sm font-medium text-on-primary hover:bg-primary-hover">
                       Describe a shipment
                     </Link>
                     <Link href="/upload" className="inline-flex h-9 items-center rounded-lg border border-control bg-sheet px-3.5 text-sm font-medium text-text hover:bg-raised">
