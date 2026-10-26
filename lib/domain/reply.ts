@@ -93,6 +93,8 @@ export type ReplyInput = {
   clarification?: string | null;
   question?: string | null;
   operationCount?: number;
+  /** Reply to an Edit booking save: thank the user instead of echoing the changes (the event line already lists them). */
+  fromEdit?: boolean;
 };
 
 export function composeReply(r: ReplyInput): string {
@@ -102,7 +104,9 @@ export function composeReply(r: ReplyInput): string {
   if (r.question) parts.push(r.question);
 
   const visible = changes.filter((c) => !c.quiet);
-  if (visible.length) {
+  if (r.fromEdit) {
+    if (visible.length) parts.push("Thanks for those details.");
+  } else if (visible.length) {
     const shown = visible.slice(0, 10).map((c) => (c.before === "—" ? `${c.label}: ${c.after}` : `${c.label} ${c.before} → ${c.after}`));
     parts.push(`Got it — ${shown.join("; ")}${visible.length > 10 ? ` (+${visible.length - 10} more)` : ""}.`);
   } else if (!r.question && !r.clarification && !warnings.length) {

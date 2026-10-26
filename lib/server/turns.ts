@@ -104,6 +104,10 @@ export async function runTurn(input: TurnInput): Promise<TurnResponse> {
   } else if (input.kind === "edit") {
     const summary = changes.length ? changes.map((c) => `${c.label} ${c.before} → ${c.after}`).join("; ") : "no fields changed";
     messages = [{ role: "event", content: `Edited directly: ${summary}.${warnings.length ? ` ${warnings.join(" ")}` : ""}` }];
+    if (changes.some((c) => !c.quiet)) {
+      const reply = composeReply({ draft: after, evaluation, previous, changes, warnings: [], fromEdit: true });
+      messages.push({ role: "assistant", content: reply, meta: { status: evaluation.status, changes: changes.length } });
+    }
   } else {
     if (evaluation.status === "Draft" || evaluation.status === "Blocked")
       throw new ApiError(409, "NOT_CONFIRMABLE", `This booking is ${evaluation.status} and can't be marked ready to submit yet.`);
