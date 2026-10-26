@@ -18,16 +18,33 @@ function toValue(key: string, v: string): string | number | null {
   return t;
 }
 
+function humanise(field: string): string {
+  const t = field.replace(/([A-Z])/g, " $1").toLowerCase();
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+function summarise(ops: PatchOp[]): string[] {
+  return ops.map((o) => {
+    if (o.op === "set") return `${humanise(o.field)} → ${typeof o.value === "boolean" ? (o.value ? "Yes" : "No") : String(o.value)}`;
+    if (o.op === "remove") return `${humanise(o.field)} cleared`;
+    if (o.op === "addItem") return "Item line added";
+    if (o.op === "removeItem") return "Item line removed";
+    return "Item line updated";
+  });
+}
+
 /** Manual editor: produces the same typed patch operations as the chat, saved via the version-safe PATCH. */
 export function EditBookingDialog({ open, draft, onClose, onSubmit, busy, error }: { open: boolean; draft: DraftBooking; onClose: () => void; onSubmit: (ops: PatchOp[]) => void; busy: boolean; error: string | null }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [b, setB] = useState<Record<string, string>>({});
   const [items, setItems] = useState<ItemForm[]>([]);
+  const [pending, setPending] = useState<PatchOp[] | null>(null);
 
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
     if (open) {
+      setPending(null);
       setB({
         sellerName: s(draft.sellerName),
         originCity: s(draft.originCity),
@@ -120,12 +137,37 @@ export function EditBookingDialog({ open, draft, onClose, onSubmit, busy, error 
       <form
         onSubmit={(e) => {
           e.preventDefault();
+          if (pending) return onSubmit(pending);
           const ops = build();
-          if (ops.length) onSubmit(ops);
+          if (ops.length) setPending(ops);
           else onClose();
         }}
-        className="flex max-h-[92dvh] flex-col"
+        className="relative flex max-h-[92dvh] flex-col"
       >
+        {pending && (
+          <div role="alertdialog" aria-labelledby="edit-confirm-title" className="absolute inset-0 z-10 flex flex-col justify-center gap-4 rounded-2xl bg-sheet px-6 py-6">
+            <h3 id="edit-confirm-title" className="text-heading">
+              Update your conversation?
+            </h3>
+            <p className="text-small text-muted">
+              Saving adds these changes to the chat. The assistant will thank you for them and ask for anything still missing.
+            </p>
+            <ul className="list-disc space-y-1 pl-5 text-small">
+              {summarise(pending).map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+            {error && <Notice tone="error">{error}</Notice>}
+            <div className="flex justify-end gap-2">
+              <Button type="button" onClick={() => setPending(null)} disabled={busy}>
+                Keep editing
+              </Button>
+              <Button type="submit" variant="primary" disabled={busy} autoFocus>
+                {busy ? "Saving…" : "Save and continue"}
+              </Button>
+            </div>
+          </div>
+        )}
         <header className="border-b border-border px-5 py-4">
           <h2 id="edit-title" className="text-heading">
             Edit booking
