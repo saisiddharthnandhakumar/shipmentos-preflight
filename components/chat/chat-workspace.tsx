@@ -9,10 +9,21 @@ import { RULE_DEFINITIONS } from "@/lib/domain/reference";
 import { useHistory } from "../shell/history-context";
 import { CarrierPanel, Collapsible, FactsList, FixList, ItemsTable, PreflightStrip, RuleChecklist, StatusSummary } from "../booking/parts";
 import { Button, Notice, Skeleton, cx } from "../ui";
+import { VoiceButton, type VoiceStatus } from "../voice-button";
 import { SendToErpButton } from "../booking/send-to-erp";
 import { EditBookingDialog } from "./edit-booking";
 
 type Pending = { requestId: string; text: string; state: "sending" | "failed"; error?: string; retryable: boolean };
+
+const GREETING: StoredMessage = {
+  id: "greeting",
+  seq: 0,
+  role: "assistant",
+  content:
+    "Hi, let's book a shipment. Tell me where it's going, what's in it, how many pallets and when it's ready. Type it, or tap the mic and say it. I'll fill in the booking and ask only for what's missing.",
+  revision: null,
+  createdAt: "",
+};
 
 const EXAMPLES = [
   "I need 3 pallets of ceramic mugs from Manchester to a warehouse in Frankfurt, ready 5 Nov. Cheapest please.",
@@ -30,6 +41,8 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
   const [text, setText] = useState("");
+  const [started, setStarted] = useState(false);
+  const [voice, setVoice] = useState<VoiceStatus>(null);
   const [tab, setTab] = useState<"chat" | "booking">("chat");
   const [editing, setEditing] = useState(false);
   const [editBusy, setEditBusy] = useState(false);
@@ -69,6 +82,16 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
       alive = false;
     };
   }, [initialBookingId, history.sessionReady, reload]);
+
+  // Focus the message box once, as soon as it is both shown and enabled (the session can still be starting).
+  const composerUsable = loadState === "ready" && history.sessionReady;
+  const focusedAfterStart = useRef(false);
+  useEffect(() => {
+    if (started && composerUsable && !focusedAfterStart.current) {
+      focusedAfterStart.current = true;
+      composer.current?.focus();
+    }
+  }, [started, composerUsable]);
 
   useLayoutEffect(() => {
     const el = scroller.current;
@@ -192,6 +215,9 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
   const confirmed = snap?.booking.confirmedRevision != null && snap.booking.confirmedRevision === snap.booking.revision;
   const canConfirm = evaluation && (evaluation.status === "Ready to submit" || evaluation.status === "Needs attention") && !confirmed;
   const empty = loadState === "ready" && messages.length === 0 && !pending;
+  const showStart = empty && !started;
+  // The opening message is local: nothing is created or listed in history until the seller actually sends something.
+  const showGreeting = started && !olderCursor && loadState === "ready";
 
   return (
     <div className="flex h-full min-h-0 flex-col px-3 pb-3 lg:px-6 lg:pb-6">
@@ -219,20 +245,12 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
             stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
           }}>
             <div className="mx-auto w-full max-w-[720px] px-4 py-6">
-              <h1 className={cx("text-title text-ink", !empty && "sr-only")}>{snap?.booking.title && snap.booking.title !== "New shipment" ? snap.booking.title : "Book a shipment"}</h1>
-              {empty && (
+              <h1 className={cx("text-title text-ink", !showStart && "sr-only")}>{snap?.booking.title && snap.booking.title !== "New shipment" ? snap.booking.title : "Book a shipment"}</h1>
+              {showStart && (
                 <div data-testid="chat-empty">
                   <p className="mt-1 max-w-[56ch] text-sm text-muted">
                     Say where it&apos;s going, what&apos;s in it, how many pallets and when it&apos;s ready. I&apos;ll fill in the booking and ask only for what&apos;s missing.
                   </p>
-                  <p className="mt-5 text-small font-medium text-text">Try one of these</p>
-                  <div className="mt-2 space-y-2">
-                    {EXAMPLES.map((ex) => (
-                      <button key={ex} type="button" onClick={() => setText(ex)} className="block w-full rounded-2xl bg-raised px-4 py-3 text-left text-small text-text transition-colors hover:bg-active">
-                        {ex}
-                      </button>
-                    ))}
-                  </div>
                   <p className="mt-4 text-caption text-muted">Prefer a form? <button className="font-medium text-accent-ink underline-offset-2 hover:underline" onClick={() => setEditing(true)}>Fill it in by hand</button>. Have a spreadsheet? <Link href="/upload" className="font-medium text-accent-ink underline-offset-2 hover:underline">Upload Excel</Link>.</p>
                 </div>
               )}
@@ -256,6 +274,19 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
                 </div>
               )}
               <ol className="space-y-4" data-testid="transcript" aria-live="polite" aria-relevant="additions">
+                {showGreeting && <MessageBubble m={GREETING} />}
+                {started && empty && (
+                  <li data-testid="examples" className="pl-[34px]">
+                    <p className="text-small font-medium text-text">Try one of these</p>
+                    <div className="mt-2 space-y-2">
+                      {EXAMPLES.map((ex) => (
+                        <button key={ex} type="button" onClick={() => { setText(ex); composer.current?.focus(); }} className="block w-full rounded-2xl bg-raised px-4 py-3 text-left text-small text-text transition-colors hover:bg-active">
+                          {ex}
+                        </button>
+                      ))}
+                    </div>
+                  </li>
+                )}
                 {messages.map((m) => (
                   <MessageBubble key={m.id} m={m} />
                 ))}
@@ -286,42 +317,63 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
               </ol>
             </div>
           </div>
-          <form
-            className="flex-none px-4 pb-4 pt-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void send(text);
-            }}
-          >
-            <div className="mx-auto flex w-full max-w-[720px] items-end gap-2">
-              <label className="sr-only" htmlFor="composer">
-                Message
-              </label>
-              <textarea
-                id="composer"
-                name="message"
-                autoComplete="off"
-                ref={composer}
-                value={text}
-                onChange={(e) => setText(e.target.value.slice(0, 2000))}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-                    e.preventDefault();
-                    void send(text);
-                  }
-                }}
-                rows={1}
-                placeholder={evaluation?.status === "Draft" || !evaluation ? "Describe your shipment…" : "Change anything, e.g. “add one more pallet”…"}
-                className="max-h-40 min-h-12 flex-1 resize-none rounded-3xl bg-raised px-5 py-3 text-sm leading-6 placeholder:text-faint"
-                disabled={loadState === "loading" || loadState === "error" || !history.sessionReady}
-                data-testid="composer"
-              />
-              <Button type="submit" variant="primary" className="h-12 px-6" disabled={!text.trim() || pending?.state === "sending" || loadState !== "ready"} data-testid="send">
-                {pending?.state === "sending" ? "Sending…" : "Send"}
-              </Button>
+          {showStart ? (
+            <div className="flex-none px-4 pb-4 pt-2">
+              <div className="mx-auto w-full max-w-[720px]">
+                <Button variant="primary" className="h-12 w-full text-base" onClick={() => setStarted(true)} data-testid="get-started">
+                  Get started
+                </Button>
+                <p className="mt-1.5 text-caption text-faint">AI reads your words; every check, price and date is calculated by fixed rules. Nothing is booked with a carrier.</p>
+              </div>
             </div>
-            <p className="mx-auto mt-1.5 max-w-[720px] text-caption text-faint">AI reads your words; every check, price and date is calculated by fixed rules. Nothing is booked with a carrier.</p>
-          </form>
+          ) : (
+            <form
+              className="flex-none px-4 pb-4 pt-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void send(text);
+              }}
+            >
+              <div className="mx-auto flex w-full max-w-[720px] items-end gap-2">
+                <label className="sr-only" htmlFor="composer">
+                  Message
+                </label>
+                <textarea
+                  id="composer"
+                  name="message"
+                  autoComplete="off"
+                  ref={composer}
+                  value={text}
+                  onChange={(e) => setText(e.target.value.slice(0, 2000))}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                      e.preventDefault();
+                      void send(text);
+                    }
+                  }}
+                  rows={1}
+                  placeholder={evaluation?.status === "Draft" || !evaluation ? "Describe your shipment…" : "Change anything, e.g. “add one more pallet”…"}
+                  className="max-h-40 min-h-12 flex-1 resize-none rounded-3xl bg-raised px-5 py-3 text-sm leading-6 placeholder:text-faint"
+                  disabled={loadState === "loading" || loadState === "error" || !history.sessionReady}
+                  data-testid="composer"
+                />
+                <VoiceButton
+                  onStatus={setVoice}
+                  onTranscript={(t) => {
+                    setText((prev) => `${prev.trim() ? `${prev.trim()} ` : ""}${t}`.slice(0, 2000));
+                    composer.current?.focus();
+                  }}
+                  disabled={loadState !== "ready" || !history.sessionReady || pending?.state === "sending"}
+                />
+                <Button type="submit" variant="primary" className="h-12 px-6" disabled={!text.trim() || pending?.state === "sending" || loadState !== "ready"} data-testid="send">
+                  {pending?.state === "sending" ? "Sending…" : "Send"}
+                </Button>
+              </div>
+              <p className={cx("mx-auto mt-1.5 max-w-[720px] text-caption", voice ? (voice.tone === "error" ? "text-red-ink" : "text-text") : "text-faint")} role="status" data-testid="voice-status">
+                {voice?.text ?? "AI reads your words; every check, price and date is calculated by fixed rules. Nothing is booked with a carrier."}
+              </p>
+            </form>
+          )}
         </section>
 
         {/* Live booking panel */}

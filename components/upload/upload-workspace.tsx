@@ -5,7 +5,9 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiClientError } from "@/lib/client/api";
 import type { BookingListItem } from "@/lib/client/types";
+import { filterChips, filterSummary, isEmptyFilter, matchesFilter, type BookingFilter } from "@/lib/domain/booking-filter";
 import { Button, Notice, PageHeader, Skeleton, StatusPill, cx, relativeTime } from "../ui";
+import { VoiceButton, type VoiceStatus } from "../voice-button";
 
 type Summary = {
   total: number;
@@ -167,6 +169,7 @@ export function UploadResults({ batchId }: { batchId: string }) {
     router.replace(`${pathname}${next.size ? `?${next}` : ""}`, { scroll: false });
   };
   const [q, setQ] = useState("");
+  const [chat, setChat] = useState<BookingFilter>({});
 
   const load = useCallback(() => {
     api<BatchDetail>(`/api/imports/${batchId}`)
@@ -176,15 +179,30 @@ export function UploadResults({ batchId }: { batchId: string }) {
   useEffect(load, [load]);
 
   const withIssues = useMemo(() => new Set(data?.issues.filter((i) => i.severity === "error" && i.bookingId).map((i) => i.bookingId!) ?? []), [data]);
+  // `row` is the booking's position in this table (1-based); "rows 1 to 7" in the chat means these numbers.
   const rows = useMemo(() => {
     if (!data) return [];
     const needle = q.trim().toLowerCase();
-    return data.bookings.filter((b) => {
-      if (filter === "issues" ? !withIssues.has(b.id) : filter !== "all" && b.status !== filter) return false;
-      if (!needle) return true;
-      return [b.externalBookingId, b.sellerName, b.title, b.destinationCountry, b.status].some((v) => v?.toLowerCase().includes(needle));
-    });
-  }, [data, filter, q, withIssues]);
+    return data.bookings
+      .map((b, i) => ({ b, row: i + 1 }))
+      .filter(({ b, row }) => {
+        if (filter === "issues" ? !withIssues.has(b.id) : filter !== "all" && b.status !== filter) return false;
+        if (!matchesFilter(b, row, withIssues.has(b.id), chat)) return false;
+        if (!needle) return true;
+        return [b.externalBookingId, b.sellerName, b.title, b.destinationCountry, b.status].some((v) => v?.toLowerCase().includes(needle));
+      });
+  }, [data, filter, q, withIssues, chat]);
+  const suggestions = useMemo(() => {
+    if (!data) return [];
+    const byCountry = new Map<string, number>();
+    for (const b of data.bookings) if (b.destinationCountry) byCountry.set(b.destinationCountry, (byCountry.get(b.destinationCountry) ?? 0) + 1);
+    const top = [...byCountry.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+    return [
+      ...(top ? [`Only shipments going to ${top}`] : []),
+      `Rows 1 to ${Math.min(7, data.bookings.length)}`,
+      ...(data.batch.summary.blocked ? ["Just the blocked ones"] : []),
+    ];
+  }, [data]);
 
   if (error)
     return (
@@ -288,15 +306,28 @@ export function UploadResults({ batchId }: { batchId: string }) {
           </label>
         </div>
 
+        <AskUpload
+          batchId={batchId}
+          filter={chat}
+          shown={rows.length}
+          total={data.bookings.length}
+          suggestions={suggestions}
+          onFilter={(f) => {
+            setChat(f);
+            setFilter("all");
+          }}
+        />
+
         <ul className="mt-2 divide-y divide-rule sm:hidden" aria-label="Bookings">
           {rows.length === 0 ? (
-            <li className="py-4 text-center text-small text-muted">No bookings match this filter.</li>
+            <li className="py-4 text-center text-small text-muted">No bookings match these filters.</li>
           ) : (
-            rows.map((b) => (
+            rows.map(({ b, row }) => (
               <li key={b.id}>
                 <Link href={`/bookings/${b.id}`} className="block w-full py-2.5 text-left">
                   <span className="flex items-start justify-between gap-2">
                     <span className="min-w-0 truncate text-small text-text">
+                      <span className="num mr-1.5 text-caption text-muted">{row}</span>
                       <span className="font-mono">{b.externalBookingId ?? "—"}</span> {b.title.replace(/^[^·]*·\s*/, "")}
                     </span>
                     <StatusPill status={b.status} />
@@ -313,6 +344,7 @@ export function UploadResults({ batchId }: { batchId: string }) {
           <table className="w-full min-w-[720px] text-small" data-testid="results-table">
             <thead>
               <tr className="text-left text-caption text-muted">
+                <th className="w-10 py-2 pr-2 text-right font-normal">Row</th>
                 <th className="py-2 pr-3 font-normal">Booking</th>
                 <th className="py-2 pr-3 font-normal">Route</th>
                 <th className="py-2 pr-3 font-normal">Status</th>
@@ -326,13 +358,14 @@ export function UploadResults({ batchId }: { batchId: string }) {
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-4 text-center text-muted">
-                    No bookings match this filter.
+                  <td colSpan={7} className="py-4 text-center text-muted">
+                    No bookings match these filters.
                   </td>
                 </tr>
               ) : (
-                rows.map((b) => (
+                rows.map(({ b, row }) => (
                   <tr key={b.id} className="cursor-pointer border-t border-rule hover:bg-raised" onClick={() => router.push(`/bookings/${b.id}`)} data-testid="result-row" data-external-id={b.externalBookingId ?? ""}>
+                    <td className="num py-2.5 pr-2 text-right text-muted">{row}</td>
                     <td className="py-2.5 pr-3">
                       <span className="font-mono text-text">{b.externalBookingId ?? "—"}</span>
                       <span className="block max-w-[220px] truncate text-caption text-muted">{b.sellerName ?? "—"}</span>
@@ -364,6 +397,109 @@ export function UploadResults({ batchId }: { batchId: string }) {
         </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Chat over this upload: say what you want to see (typed or spoken). The words become a filter, and the
+ * rows, counts and chips below are produced from that filter by fixed rules, not by the model.
+ */
+function AskUpload({ batchId, filter, shown, total, suggestions, onFilter }: { batchId: string; filter: BookingFilter; shown: number; total: number; suggestions: string[]; onFilter: (f: BookingFilter) => void }) {
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const [voice, setVoice] = useState<VoiceStatus>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const chips = filterChips(filter);
+
+  async function ask(raw: string) {
+    const message = raw.trim();
+    if (!message || busy) return;
+    setBusy(true);
+    setError(null);
+    setNote(null);
+    try {
+      const r = await api<{ filter: BookingFilter; clarification: string | null }>(`/api/imports/${batchId}/filter`, { method: "POST", body: { message, current: filter } });
+      onFilter(r.filter);
+      setNote(r.clarification);
+      setText("");
+    } catch (e) {
+      setError(e instanceof ApiClientError ? e.message : "Couldn't read that. Try the status buttons and search box instead.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-4" data-testid="ask-upload">
+      <form
+        className="flex items-center gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void ask(text);
+        }}
+      >
+        <label className="sr-only" htmlFor="ask-upload-input">
+          Ask about this upload
+        </label>
+        <input
+          id="ask-upload-input"
+          ref={input}
+          value={text}
+          onChange={(e) => setText(e.target.value.slice(0, 500))}
+          name="ask"
+          autoComplete="off"
+          spellCheck={false}
+          placeholder="Try “only Germany” or “rows 1 to 7”…"
+          className="h-12 min-w-0 flex-1 rounded-full bg-raised px-5 text-sm placeholder:text-faint"
+          data-testid="ask-input"
+        />
+        <VoiceButton
+          onStatus={setVoice}
+          onTranscript={(t) => {
+            setText((prev) => `${prev.trim() ? `${prev.trim()} ` : ""}${t}`.slice(0, 500));
+            input.current?.focus();
+          }}
+          disabled={busy}
+        />
+        <Button type="submit" variant="primary" className="h-12 px-6" disabled={!text.trim() || busy} data-testid="ask-submit">
+          {busy ? "Reading…" : "Show"}
+        </Button>
+      </form>
+
+      <p className={cx("mt-2 text-small", voice?.tone === "error" || error ? "text-red-ink" : "text-muted")} role="status" data-testid="ask-status">
+        {error ?? voice?.text ?? note ?? filterSummary(shown, total, filter)}
+      </p>
+
+      {(chips.length > 0 || (isEmptyFilter(filter) && suggestions.length > 0)) && (
+        <ul className="mt-2 flex flex-wrap gap-1.5" aria-label={chips.length ? "Active filters" : "Suggestions"}>
+          {chips.length > 0
+            ? chips.map((c) => (
+                <li key={c.key}>
+                  <button type="button" onClick={() => onFilter(c.remove(filter))} className="inline-flex h-8 items-center gap-1.5 rounded-full bg-accent px-3 text-small font-medium text-on-accent" aria-label={`Remove filter: ${c.label}`}>
+                    {c.label}
+                    <span aria-hidden>×</span>
+                  </button>
+                </li>
+              ))
+            : suggestions.map((sg) => (
+                <li key={sg}>
+                  <button type="button" onClick={() => void ask(sg)} disabled={busy} className="h-8 rounded-full bg-raised px-3 text-small text-text hover:bg-active disabled:opacity-55">
+                    {sg}
+                  </button>
+                </li>
+              ))}
+          {chips.length > 0 && (
+            <li>
+              <button type="button" onClick={() => onFilter({})} className="h-8 rounded-full px-3 text-small text-muted hover:bg-active hover:text-text">
+                Clear all
+              </button>
+            </li>
+          )}
+        </ul>
+      )}
     </div>
   );
 }

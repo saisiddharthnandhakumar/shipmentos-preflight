@@ -63,3 +63,18 @@ export async function api<T>(path: string, opts: Opts = {}, retried = false): Pr
 export function newRequestId(): string {
   return crypto.randomUUID().replace(/-/g, "");
 }
+
+/** Send a voice recording to Gemini speech-to-text; resolves to the words (possibly empty). */
+export async function transcribeAudio(blob: Blob, signal?: AbortSignal): Promise<string> {
+  await ensureSession();
+  let res: Response;
+  try {
+    res = await fetch("/api/transcribe", { method: "POST", credentials: "same-origin", headers: { "content-type": blob.type || "audio/webm" }, body: blob, signal, cache: "no-store" });
+  } catch (e) {
+    if ((e as Error).name === "AbortError") throw e;
+    throw new ApiClientError(0, "NETWORK", "Network problem — check your connection and try again.");
+  }
+  const body = await res.json().catch(() => null);
+  if (!res.ok) throw new ApiClientError(res.status, body?.error?.code ?? "HTTP_" + res.status, body?.error?.message ?? `Couldn't transcribe that (${res.status}).`);
+  return String(body?.text ?? "");
+}

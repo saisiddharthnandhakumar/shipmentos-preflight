@@ -12,7 +12,13 @@ export default defineConfig({
   retries: 0,
   reporter: [["list"]],
   use: { baseURL, trace: "retain-on-failure", screenshot: "only-on-failure" },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } }],
+  projects: [
+    {
+      name: "chromium",
+      // A fake microphone, so the voice button can be exercised without hardware or a permission prompt.
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 }, permissions: ["microphone"], launchOptions: { args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] } },
+    },
+  ],
   // Local production build against the Neon dev branch; deterministic fake extractor instead of Gemini.
   webServer: process.env.E2E_BASE_URL
     ? undefined

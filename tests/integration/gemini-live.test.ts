@@ -1,6 +1,10 @@
+import { readFileSync } from "node:fs";
 import { afterAll, describe, expect, it } from "vitest";
 import { POST as chatPost } from "@/app/api/chat/route";
 import { POST as bookingsPost } from "@/app/api/bookings/route";
+import { POST as transcribePost } from "@/app/api/transcribe/route";
+import { POST as filterPost } from "@/app/api/imports/[id]/filter/route";
+import { upload } from "../helpers/upload";
 import { setExtractorForTests } from "@/lib/ai/extract";
 import { closeDb } from "@/lib/db/client";
 import { json, req } from "../helpers/http";
@@ -30,5 +34,30 @@ describe.skipIf(!live)("live Gemini through POST /api/chat", () => {
     const b = await send("Actually add one more pallet", 2);
     expect(b.snapshot.draft.pallets).toBe(4);
     expect(b.snapshot.evaluation.carrier.candidates.find((c: { option: { key: string } }) => c.option.key === "GB-DE-A").totalCostGBP).toBe(720);
+  }, 90_000);
+});
+
+describe.skipIf(!live)("live Gemini: speech to text and chat-over-upload", () => {
+  it("transcribes a spoken shipment description (WebM/Opus, as browsers record it)", async () => {
+    const jar = await newSession();
+    const res = await transcribePost(req("/api/transcribe", { method: "POST", jar, rawBody: new Uint8Array(readFileSync("tests/fixtures/speech.webm")), headers: { "content-type": "audio/webm;codecs=opus" } }));
+    expect(res.status).toBe(200);
+    const { text } = await json(res);
+    expect(text).toMatch(/pallets/i);
+    expect(text).toMatch(/Manchester/i);
+    expect(text).toMatch(/Frankfurt/i);
+  }, 60_000);
+
+  it("turns 'Germany only, rows 1 to 7' into a filter, then refines it", async () => {
+    const jar = await newSession();
+    const { body } = await upload(jar, "planted-errors.xlsx");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ask = async (message: string, current: object) => json(await filterPost(req(`/api/imports/${body.batchId}/filter`, { method: "POST", jar, body: { message, current } }), { params: Promise.resolve({ id: body.batchId }) } as any));
+    const a = await ask("give me the shipments going from Great Britain to Germany, rows 1 to 7", {});
+    expect(a.filter).toEqual({ destinationCountries: ["Germany"], rowFrom: 1, rowTo: 7 });
+    const b = await ask("only the blocked ones", a.filter);
+    expect(b.filter).toEqual({ destinationCountries: ["Germany"], rowFrom: 1, rowTo: 7, statuses: ["Blocked"] });
+    const c = await ask("show everything again", b.filter);
+    expect(c.filter).toEqual({});
   }, 90_000);
 });

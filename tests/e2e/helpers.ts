@@ -2,6 +2,10 @@ import { expect, type Page } from "@playwright/test";
 
 export async function send(page: Page, text: string) {
   const composer = page.getByTestId("composer");
+  const start = page.getByTestId("get-started");
+  // A brand-new chat opens on "Get started"; the message box appears once it's pressed.
+  await expect(start.or(composer)).toBeVisible();
+  if (await start.isVisible()) await start.click();
   await expect(composer).toBeEnabled();
   await composer.fill(text);
   await page.getByTestId("send").click();
