@@ -9,6 +9,7 @@ import { RULE_DEFINITIONS } from "@/lib/domain/reference";
 import { useHistory } from "../shell/history-context";
 import { CarrierPanel, Collapsible, FactsList, FixList, ItemsTable, PreflightStrip, RuleChecklist, StatusSummary } from "../booking/parts";
 import { Button, Notice, Skeleton, cx } from "../ui";
+import { SendToErpButton } from "../booking/send-to-erp";
 import { EditBookingDialog } from "./edit-booking";
 
 type Pending = { requestId: string; text: string; state: "sending" | "failed"; error?: string; retryable: boolean };
@@ -168,7 +169,7 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
       const r = await api<TurnResponse>(`/api/bookings/${bookingId}/confirm`, { method: "POST", body: { expectedRevision: snap.booking.revision, requestId: newRequestId() } });
       applyTurn(r);
     } catch (e) {
-      setPanelNotice(e instanceof ApiClientError ? e.message : "Couldn't save the draft.");
+      setPanelNotice(e instanceof ApiClientError ? e.message : "Couldn't send to the ERP.");
     } finally {
       setConfirmBusy(false);
     }
@@ -385,15 +386,13 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
                   <div className={cx("rounded-xl border p-3", confirmed ? "border-pass-line bg-pass-bg" : "border-border")} data-testid="confirmation">
                     {confirmed ? (
                       <>
-                        <p className="text-small font-medium text-pass-ink">Saved as a ready-to-submit draft · {draftReferenceOf(snap!.booking.id)}</p>
-                        <p className="mt-1 text-small text-pass-ink">Not a carrier booking: submit it yourself. Any later change clears this.</p>
+                        <p className="text-small font-medium text-pass-ink">Sent to ERP · ref {draftReferenceOf(snap!.booking.id)}</p>
+                        <p className="mt-1 text-small text-pass-ink">Queued for the ERP (simulated). No carrier contacted. Any later change clears this.</p>
                       </>
                     ) : (
                       <>
-                        <p className="text-small text-text">{evaluation.status === "Needs attention" ? "Complete, with items to check. You can still save it as a draft." : "Complete and all 10 checks pass."}</p>
-                        <Button variant="primary" size="sm" className="mt-2" onClick={() => void confirmDraft()} disabled={confirmBusy} data-testid="confirm-draft">
-                          {confirmBusy ? "Saving…" : "Save as ready-to-submit draft"}
-                        </Button>
+                        <p className="text-small text-text">{evaluation.status === "Needs attention" ? "Complete, with items to check. You can still send it to the ERP." : "Complete and all 10 checks pass."}</p>
+                        <SendToErpButton size="sm" className="mt-2" onSend={() => void confirmDraft()} busy={confirmBusy} />
                       </>
                     )}
                     {panelNotice && <p className="mt-2 text-caption text-red-ink">{panelNotice}</p>}
@@ -445,7 +444,7 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
                           <li key={r.revision} className="flex gap-2">
                             <span className="num w-10 flex-none text-text">rev {r.revision}</span>
                             <span className="min-w-0 flex-1">
-                              {r.source === "chat" ? "Chat" : r.source === "edit" ? "Direct edit" : r.source === "confirm" ? "Saved as draft" : r.source}
+                              {r.source === "chat" ? "Chat" : r.source === "edit" ? "Direct edit" : r.source === "confirm" ? "Sent to ERP" : r.source}
                               {Array.isArray(r.changedFields) && r.changedFields.length ? ` · ${(r.changedFields as string[]).join(", ")}` : " · no field changes"}
                             </span>
                           </li>

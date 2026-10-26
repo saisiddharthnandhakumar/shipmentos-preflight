@@ -7,12 +7,13 @@ import { draftReferenceOf } from "@/lib/client/reference";
 import type { BookingSnapshot, PatchOp, TurnResponse } from "@/lib/client/types";
 import { EditBookingDialog } from "../chat/edit-booking";
 import { Button, Card, Notice, Skeleton } from "../ui";
+import { SendToErpButton } from "./send-to-erp";
 import { CarrierPanel, Collapsible, FactsList, FixList, InputIssues, ItemsTable, NextSteps, PreflightStrip, RuleChecklist, StatusSummary } from "./parts";
 
 function confirmationLine(e: BookingSnapshot["evaluation"]): string {
   const c = e.carrier.candidates.find((x) => x.option.key === e.carrier.chosenKey);
   const pick = c ? `${c.option.carrier} ${c.option.service}, £${c.totalCostGBP.toLocaleString("en-GB")}` : null;
-  if (e.status === "Ready to submit") return `All ten checks pass. ${pick ? `We recommend ${pick}. ` : ""}Nothing is booked yet: you submit it to the carrier.`;
+  if (e.status === "Ready to submit") return `All ten checks pass. ${pick ? `We recommend ${pick}. ` : ""}Next: send it to the ERP, then dispatch with the carrier.`;
   if (e.status === "Needs attention") return `No blockers, but ${e.amberCount} item${e.amberCount === 1 ? "" : "s"} should be checked first. ${pick ? `Recommended: ${pick}. ` : ""}Nothing is booked yet.`;
   if (e.status === "Blocked") return `Not safe to ship yet: ${e.redCount + e.inputIssues.filter((i) => i.severity === "error").length} problem(s) must be fixed first. ${pick ? `Once fixed, the recommendation is ${pick}. ` : ""}Nothing is booked yet.`;
   return "Still being filled in. Nothing is booked yet.";
@@ -73,7 +74,7 @@ export function BookingPage({ bookingId }: { bookingId: string }) {
       const r = await api<TurnResponse>(`/api/bookings/${bookingId}/confirm`, { method: "POST", body: { expectedRevision: snap.booking.revision, requestId: newRequestId() } });
       setSnap(r.snapshot);
     } catch (e) {
-      setNotice(e instanceof ApiClientError ? e.message : "Couldn't save the draft.");
+      setNotice(e instanceof ApiClientError ? e.message : "Couldn't send to the ERP.");
     } finally {
       setConfirmBusy(false);
     }
@@ -138,9 +139,7 @@ export function BookingPage({ bookingId }: { bookingId: string }) {
                   Edit booking
                 </Button>
                 {canConfirm && (
-                  <Button variant="primary" onClick={() => void confirmDraft()} disabled={confirmBusy} data-testid="confirm-draft">
-                    {confirmBusy ? "Saving…" : "Save as ready-to-submit draft"}
-                  </Button>
+                  <SendToErpButton onSend={() => void confirmDraft()} busy={confirmBusy} />
                 )}
               </div>
             </header>
@@ -161,8 +160,8 @@ export function BookingPage({ bookingId }: { bookingId: string }) {
                 <StatusSummary evaluation={evaluation} hideHeadline />
                 {confirmed && (
                   <div className="rounded-xl border border-pass-line bg-pass-bg px-4 py-3" data-testid="confirmation">
-                    <p className="text-small font-medium text-pass-ink">Saved as a ready-to-submit draft · {draftReferenceOf(snap.booking.id)}</p>
-                    <p className="mt-1 text-small text-pass-ink">This is a prepared booking, not a carrier booking. Submit it to the carrier yourself. Any later change re-runs the checks and clears this confirmation.</p>
+                    <p className="text-small font-medium text-pass-ink">Sent to ERP · ref {draftReferenceOf(snap.booking.id)}</p>
+                    <p className="mt-1 text-small text-pass-ink">The ERP record is queued (simulated: no live ERP connection yet). No carrier has been contacted. Any later change re-runs the checks and clears this.</p>
                   </div>
                 )}
                 <PreflightStrip rules={evaluation.rules} onSelect={jump} />
@@ -213,7 +212,7 @@ export function BookingPage({ bookingId }: { bookingId: string }) {
                           <li key={r.revision} className="flex gap-2">
                             <span className="num w-10 flex-none text-text">rev {r.revision}</span>
                             <span className="min-w-0 flex-1">
-                              {r.source === "chat" ? "Chat" : r.source === "edit" ? "Direct edit" : r.source === "confirm" ? "Saved as draft" : r.source}
+                              {r.source === "chat" ? "Chat" : r.source === "edit" ? "Direct edit" : r.source === "confirm" ? "Sent to ERP" : r.source}
                               {Array.isArray(r.changedFields) && r.changedFields.length ? ` · ${(r.changedFields as string[]).join(", ")}` : " · no field changes"}
                             </span>
                           </li>

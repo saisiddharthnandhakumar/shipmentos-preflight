@@ -114,7 +114,7 @@ export async function runTurn(input: TurnInput): Promise<TurnResponse> {
     messages = [
       {
         role: "event",
-        content: `Saved as a ready-to-submit draft (${draftReference(bookingId)}). ${statusLine(evaluation)}`,
+        content: `Sent to ERP (simulated, ref ${draftReference(bookingId)}). No carrier has been contacted. ${statusLine(evaluation)}`,
       },
     ];
   }

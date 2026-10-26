@@ -167,7 +167,7 @@ describe("chat turns", () => {
     expect(e.messages[0].role).toBe("event");
     const conf = await json(await confirmPost(req(`/api/bookings/${id}/confirm`, { method: "POST", jar, body: { expectedRevision: 3, requestId: rid() } }), ctx({ id })));
     expect(conf.snapshot.booking.confirmedRevision).toBe(4);
-    expect(conf.messages[0].content).toMatch(/ready-to-submit draft \(SOS-/);
+    expect(conf.messages[0].content).toMatch(/Sent to ERP \(simulated, ref SOS-/);
     expect(conf.messages[0].content).toMatch(/no carrier has been contacted|Needs attention/);
   });
 });
