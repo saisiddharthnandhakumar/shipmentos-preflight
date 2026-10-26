@@ -166,6 +166,25 @@ function ciPick<T extends string>(list: readonly T[], text: string): T | null {
   return list.find((x) => norm(x) === norm(text)) ?? null;
 }
 
+/** Every non-empty cell of every sheet as plain text, for the AI fallback when a file doesn't follow the template. */
+export async function workbookToText(input: ArrayBuffer | Buffer, maxChars = 60_000): Promise<string> {
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(input as ArrayBuffer);
+  const out: string[] = [];
+  for (const ws of wb.worksheets) {
+    out.push(`### Sheet: ${ws.name}`);
+    const last = Math.min(ws.rowCount, 500);
+    for (let r = 1; r <= last; r++) {
+      const cells: string[] = [];
+      const row = ws.getRow(r);
+      for (let c = 1; c <= Math.min(ws.columnCount, 40); c++) cells.push(cellValue(row.getCell(c).value).text ?? "");
+      while (cells.length && cells[cells.length - 1] === "") cells.pop();
+      if (cells.length) out.push(`R${r}: ${cells.join(" | ")}`);
+    }
+  }
+  return out.join("\n").slice(0, maxChars);
+}
+
 export async function parseWorkbook(input: ArrayBuffer | Buffer, newId: () => string): Promise<ParseResult> {
   const issues: Issue[] = [];
   const result: ParseResult = {

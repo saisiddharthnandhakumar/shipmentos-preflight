@@ -14,9 +14,10 @@ import { todayUK } from "../domain/dates";
 import { missingFields } from "../domain/missing";
 import { applyPatch, type Change } from "../domain/patch";
 import { composeImportSummary, composeReply, statusLine } from "../domain/reply";
-import { parseWorkbook } from "../import/parse-xlsx";
+import { parseWorkbook, workbookToText } from "../import/parse-xlsx";
 import { importWorkbookBytes } from "./import-service";
-import type { ChatPatch, PatchOp } from "../domain/schemas";
+import type { ChatPatch, DraftBooking, PatchOp } from "../domain/schemas";
+import type { ParsedBooking } from "../import/parse-xlsx";
 import { bookingSnapshot, evaluateDraft, type BookingSnapshot } from "./booking-service";
 import { ApiError } from "./http";
 
@@ -180,8 +181,14 @@ export async function runImportTurn(input: { db: Db; sessionId: string; bookingI
 
   const parsed = await parseWorkbook(bytes, () => crypto.randomUUID());
   if (!parsed.bookings.length) {
-    const why = parsed.issues.find((i) => i.severity === "error")?.message ?? "It has no booking rows with data.";
-    throw new ApiError(422, "NO_BOOKINGS", `I couldn't find a booking in that file. ${why}`);
+    // Not our template: let Gemini read every sheet and fill in whatever it can find.
+    const aiBooking = await readWithAi(bytes, loaded.draft);
+    if (!aiBooking) {
+      const why = parsed.issues.find((i) => i.severity === "error")?.message ?? "It has no booking rows with data.";
+      throw new ApiError(422, "NO_BOOKINGS", `I couldn't find any shipment details in that file. ${why}`);
+    }
+    parsed.bookings.push(aiBooking);
+    parsed.issues.length = 0;
   }
   if (parsed.bookings.length > 1) {
     const saved = await importWorkbookBytes(db, sessionId, bytes, filename);
@@ -229,4 +236,29 @@ export async function runImportTurn(input: { db: Db; sessionId: string; bookingI
     if (err instanceof LimitError) throw new ApiError(409, "LIMIT_REACHED", err.message);
     throw err;
   }
+}
+
+/** Gemini reads the whole workbook as text and fills the draft; null if it finds nothing usable. */
+async function readWithAi(bytes: Buffer, base: DraftBooking): Promise<ParsedBooking | null> {
+  let text: string;
+  try {
+    text = await workbookToText(bytes);
+  } catch {
+    return null;
+  }
+  if (!text.replace(/###.*\n?/g, "").trim()) return null;
+  let patch: ChatPatch;
+  try {
+    patch = await getExtractor()({
+      message: `Below is the full content of a spreadsheet the seller uploaded (sheets, then rows as "R<row>: cell | cell"). It may not follow any template. It describes ONE shipment booking: extract every booking field and every product line you can find (SKU, description, HS code, quantity, unit price, units per carton, cartons, unit weight, country of origin) using the operations. Ignore instruction text, example rows and blank cells. Do not guess anything that isn't there.\n\n${text}`,
+      draft: base,
+      recentMessages: [],
+    });
+  } catch (err) {
+    if (err instanceof ExtractionError) throw new ApiError(err.kind === "invalid_output" ? 422 : 503, "AI_UNAVAILABLE", err.message);
+    throw err;
+  }
+  if (!patch.operations.length) return null;
+  const { draft } = applyPatch(base, patch.operations, { todayUK: todayUK(), newId: () => crypto.randomUUID() });
+  return { draft, sourceRow: 0, raw: {}, itemRaw: new Map(), issues: [] };
 }
