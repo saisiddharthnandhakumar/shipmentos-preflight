@@ -81,6 +81,16 @@ export function TodayScreen() {
           actions={
             <>
               {today && <span className="hidden text-small text-muted sm:inline">{today}</span>}
+              {data && total > 0 && total < 6 && (
+                <button
+                  type="button"
+                  onClick={() => void loadSample()}
+                  disabled={seeding}
+                  className="inline-flex h-10 items-center rounded-full border-2 border-dashed border-control px-5 text-sm font-medium text-text transition-colors hover:bg-sheet disabled:opacity-55"
+                >
+                  {seeding ? "Loading…" : "Load sample data"}
+                </button>
+              )}
               <Link href="/upload" className="inline-flex h-10 items-center rounded-full bg-sheet px-5 text-sm font-medium text-text transition-colors hover:bg-raised">
                 Upload Excel
               </Link>
