@@ -15,7 +15,7 @@ test("upload planted-error workbook without any chat; open a failed booking", as
   await page.getByRole("link", { name: "Open details for BK-212" }).click();
   await expect(page).toHaveURL(/\/bookings\/[0-9a-f-]{36}$/);
   const detail = page.getByTestId("booking-detail");
-  await expect(detail).toContainText("Blocked — 2 Red, 1 Amber");
+  await expect(detail).toContainText("2 to fix · 1 to check");
   await expect(detail.locator('[data-rule="R-01"]')).toContainText("SKU X-04: HS code 6912 has only 4 digits.");
   await expect(detail.locator('[data-rule="R-03"]')).toContainText("Update cartons to 90 or quantity to 960");
   await expect(detail.locator('[data-rule="R-09"]')).toContainText("missing its country of origin");
