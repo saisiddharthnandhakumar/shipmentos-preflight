@@ -74,7 +74,7 @@ test("sidebar: Dashboard, no chat shortcuts or history, New booking goes to the 
   await expect(page).toHaveURL(/\/dashboard$/);
   const rail = page.getByTestId("history-rail");
   await expect(rail.getByRole("link", { name: "Dashboard" })).toBeVisible();
-  await expect(rail.getByRole("link", { name: "Upload Excel" })).toBeVisible();
+  await expect(rail.getByRole("link", { name: "Master Data" })).toBeVisible();
   await expect(rail.getByRole("link", { name: "All bookings" })).toBeVisible();
   await expect(rail.getByRole("link", { name: "Chat to book" })).toHaveCount(0);
   await expect(rail).not.toContainText("Previous chats");

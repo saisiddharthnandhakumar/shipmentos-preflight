@@ -78,7 +78,7 @@ test("Dashboard shows All / Completed / Sync to ERP / Drafts, drafts needing att
 
   const main = page.getByRole("main");
   await expect(main.getByRole("link", { name: "New booking" })).toHaveCount(0);
-  await expect(main.getByRole("link", { name: "Upload Excel" })).toHaveCount(0);
+  await expect(main.getByRole("link", { name: "Master Data" })).toHaveCount(0);
 
   // Everything under "Needs your attention" is a draft.
   const rows = page.getByTestId("attention-row");

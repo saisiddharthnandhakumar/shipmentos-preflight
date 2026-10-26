@@ -104,7 +104,7 @@ export function NewBooking() {
           </button>
         </div>
         <p className="mt-6 text-caption text-muted">
-          Have several bookings in one spreadsheet? Use <Link href="/upload" className="font-medium text-accent-ink underline-offset-2 hover:underline">Upload Excel</Link> in the menu to check them all at once.
+          Have several bookings in one spreadsheet? Use <Link href="/upload" className="font-medium text-accent-ink underline-offset-2 hover:underline">Master Data</Link> in the menu to check them all at once.
         </p>
       </div>
     </div>

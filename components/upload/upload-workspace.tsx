@@ -62,7 +62,7 @@ export function UploadStart() {
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-5xl px-4 pt-2 pb-8 lg:px-6">
         <PageHeader
-          title="Upload Excel"
+          title="Master Data"
           description={
             <>
               Check every booking in a workbook against the 10 pre-flight rules. Use the <span className="font-medium text-text">Bookings</span> and <span className="font-medium text-text">Items</span> sheets; carrier rates and the rulebook are built in. No AI is used for uploads.
