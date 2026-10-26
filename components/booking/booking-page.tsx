@@ -9,6 +9,15 @@ import { EditBookingDialog } from "../chat/edit-booking";
 import { Button, Card, Notice, Skeleton } from "../ui";
 import { CarrierPanel, Collapsible, FactsList, FixList, InputIssues, ItemsTable, NextSteps, PreflightStrip, RuleChecklist, StatusSummary } from "./parts";
 
+function confirmationLine(e: BookingSnapshot["evaluation"]): string {
+  const c = e.carrier.candidates.find((x) => x.option.key === e.carrier.chosenKey);
+  const pick = c ? `${c.option.carrier} ${c.option.service}, £${c.totalCostGBP.toLocaleString("en-GB")}` : null;
+  if (e.status === "Ready to submit") return `All ten checks pass. ${pick ? `We recommend ${pick}. ` : ""}Nothing is booked yet: you submit it to the carrier.`;
+  if (e.status === "Needs attention") return `No blockers, but ${e.amberCount} item${e.amberCount === 1 ? "" : "s"} should be checked first. ${pick ? `Recommended: ${pick}. ` : ""}Nothing is booked yet.`;
+  if (e.status === "Blocked") return `Not safe to ship yet: ${e.redCount + e.inputIssues.filter((i) => i.severity === "error").length} problem(s) must be fixed first. ${pick ? `Once fixed, the recommendation is ${pick}. ` : ""}Nothing is booked yet.`;
+  return "Still being filled in. Nothing is booked yet.";
+}
+
 /** One booking, whether it came from chat or Excel: what is wrong, what to do, then the details. Edit and save the draft in place. */
 export function BookingPage({ bookingId }: { bookingId: string }) {
   const [snap, setSnap] = useState<BookingSnapshot | null>(null);
@@ -167,21 +176,13 @@ export function BookingPage({ bookingId }: { bookingId: string }) {
                     <InputIssues issues={evaluation.inputIssues} />
                   </section>
                 )}
-                {nothingToFix ? (
-                  <section aria-labelledby="next-h">
-                    <h2 id="next-h" className="mb-2 text-heading text-text">
-                      Next steps
-                    </h2>
-                    <NextSteps evaluation={evaluation} />
-                  </section>
-                ) : (
-                  <details className="text-small">
-                    <summary className="cursor-pointer text-muted hover:text-text">Next steps</summary>
-                    <div className="mt-2">
-                      <NextSteps evaluation={evaluation} />
-                    </div>
-                  </details>
-                )}
+                <section aria-labelledby="next-h" data-testid="what-next">
+                  <h2 id="next-h" className="mb-2 text-heading text-text">
+                    What happens next
+                  </h2>
+                  <p className="mb-2 text-small text-muted">{confirmationLine(evaluation)}</p>
+                  <NextSteps evaluation={evaluation} />
+                </section>
               </div>
 
               <div className="space-y-4">

@@ -66,32 +66,20 @@ export function RuleChecklist({ rules, highlight, filter = "all" }: { rules: Rul
                 ) : (
                   <ul className="mt-1.5 space-y-1.5">
                     {r.findings.map((f, i) => (
-                      <li key={i}>
-                        <details className="group rounded-lg bg-raised" open={highlight === r.ruleId}>
-                          <summary className="flex cursor-pointer list-none items-center gap-3 rounded-lg px-3 py-2 text-small [&::-webkit-details-marker]:hidden">
-                            {f.actual || f.expected ? (
-                              <span className="num min-w-0 flex-1 text-text">
-                                <span className="text-red-ink">{f.actual ?? "—"}</span>
-                                <span className="mx-1.5 text-muted" aria-hidden>→</span>
-                                <span className="sr-only"> should be </span>
-                                {f.expected ?? "—"}
-                              </span>
-                            ) : (
-                              <span className="min-w-0 flex-1 truncate text-text">{f.message}</span>
-                            )}
-                            <span className="flex-none text-caption text-muted group-open:hidden">Details</span>
-                            <svg viewBox="0 0 16 16" className="size-3.5 flex-none text-muted transition-transform group-open:rotate-180" aria-hidden fill="none" stroke="currentColor" strokeWidth="1.5">
-                              <path d="M4 6l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          </summary>
-                          <div className="space-y-1.5 px-3 pb-3 text-small">
-                            <p className="text-muted">{f.message}</p>
-                            <p className="text-text">
-                              <span className="font-medium">To fix: </span>
-                              {f.fix}
-                            </p>
-                          </div>
-                        </details>
+                      <li key={i} className="rounded-lg bg-raised px-3 py-2 text-small">
+                        {f.actual || f.expected ? (
+                          <p className="num text-text">
+                            <span className="text-red-ink">{f.actual ?? "—"}</span>
+                            <span className="mx-1.5 text-muted" aria-hidden>→</span>
+                            <span className="sr-only"> should be </span>
+                            {f.expected ?? "—"}
+                          </p>
+                        ) : null}
+                        <p className="mt-1 text-muted">{f.message}</p>
+                        <p className="mt-1 text-text">
+                          <span className="font-medium">To fix: </span>
+                          {f.fix}
+                        </p>
                       </li>
                     ))}
                   </ul>
@@ -253,8 +241,8 @@ export function CarrierPanel({
 
       {carrier.status !== "not_evaluable" || carrier.kgPerPallet != null ? <WeightGauge carrier={carrier} /> : null}
       {(chosen || carrier.status === "no_eligible") && carrier.explanation && (
-        <details className="mt-3 text-small">
-          <summary className="cursor-pointer text-muted hover:text-text">Why this pick</summary>
+        <details className="mt-3 text-small" open>
+          <summary className="cursor-pointer font-medium text-text">Why this pick</summary>
           <p className="mt-2 leading-5 text-text">{carrier.explanation}</p>
         </details>
       )}
