@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     const { db, session } = await requireSession(req);
     enforceRateLimit(req, session.id, "chat", 20);
     const body = ChatTurnBody.parse(await readJson(req));
-    const r = await runTurn({ db, sessionId: session.id, kind: "chat", bookingId: body.bookingId, expectedRevision: body.expectedRevision, requestId: body.requestId, message: body.message });
+    const r = await runTurn({ db, sessionId: session.id, kind: "chat", bookingId: body.bookingId, expectedRevision: body.expectedRevision, requestId: body.requestId, message: body.message, operations: body.operations });
     return NextResponse.json(r);
   } catch (err) {
     return errorResponse(err);

@@ -28,7 +28,7 @@ test("chats persist: create two, reopen by URL, continue, refresh, stay private"
   await expect(page.getByTestId("transcript").locator('[data-role="user"]').first()).toHaveText(OPENING);
   await expect(page.getByTestId("transcript").locator("li")).toHaveCount(6);
   await expect(page.getByTestId("booking-facts").locator('[data-field="pallets"]')).toHaveText("3");
-  await expect(page.getByTestId("missing-fields")).toHaveCount(0);
+  await expect(page.getByTestId("checklist")).toHaveAttribute("data-complete", "true");
 
   // Continue the earlier booking: +1 pallet recomputes cost; persisted revision shown
   await send(page, "Actually, add one more pallet.");

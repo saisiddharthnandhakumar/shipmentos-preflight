@@ -10,6 +10,8 @@ export const ChatTurnBody = z.object({
   expectedRevision: z.number().int().min(0),
   requestId,
   message: z.string().trim().min(1).max(LIMITS.maxMessageChars),
+  /** A tapped answer: ready-made operations applied as-is, with `message` shown as what the seller said. */
+  operations: z.array(PatchOpSchema).min(1).max(6).optional(),
 });
 export const EditBody = z.object({
   expectedRevision: z.number().int().min(0),

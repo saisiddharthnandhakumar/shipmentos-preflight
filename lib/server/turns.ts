@@ -36,7 +36,7 @@ type TurnInput = {
   bookingId: string;
   expectedRevision: number;
   requestId: string;
-} & ({ kind: "chat"; message: string } | { kind: "edit"; operations: PatchOp[] } | { kind: "confirm" });
+} & ({ kind: "chat"; message: string; operations?: PatchOp[] } | { kind: "edit"; operations: PatchOp[] } | { kind: "confirm" });
 
 export function draftReference(bookingId: string): string {
   return `SOS-${bookingId.replace(/-/g, "").slice(0, 8).toUpperCase()}`;
@@ -61,7 +61,9 @@ export async function runTurn(input: TurnInput): Promise<TurnResponse> {
   const today = todayUK();
 
   let patch: ChatPatch = { operations: [] };
-  if (input.kind === "chat") {
+  if (input.kind === "chat" && input.operations) {
+    patch = { operations: input.operations };
+  } else if (input.kind === "chat") {
     const recent = await listMessages(db, sessionId, bookingId, { limit: 6 });
     try {
       patch = await getExtractor()({ message: input.message, draft: before, recentMessages: recent.messages });
@@ -77,7 +79,7 @@ export async function runTurn(input: TurnInput): Promise<TurnResponse> {
   let { draft: after, changes, warnings } = applyPatch(before, patch.operations, { todayUK: today, newId });
 
   // Dense messages: a focused second extraction pass for fields still unknown (recall, not guessing).
-  if (input.kind === "chat" && patch.operations.length >= 3 && input.message.length > 80) {
+  if (input.kind === "chat" && !input.operations && patch.operations.length >= 3 && input.message.length > 80) {
     const still = missingFields(after);
     if (still.length) {
       try {

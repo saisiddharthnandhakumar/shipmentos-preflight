@@ -10,6 +10,11 @@ type UploadState = { name: string; state: "reading" | "failed"; error?: string }
 type ImportResult = ({ kind: "booking" } & TurnResponse) | { kind: "batch"; batchId: string; total: number; filename: string };
 import { draftReferenceOf } from "@/lib/client/reference";
 import { RULE_DEFINITIONS } from "@/lib/domain/reference";
+import { buildChecklist } from "@/lib/domain/checklist";
+import { choicesFor, type ChoiceOption } from "@/lib/domain/choices";
+import { missingFields } from "@/lib/domain/missing";
+import type { DraftBooking } from "@/lib/domain/schemas";
+import { Checklist } from "./checklist";
 import { useHistory } from "../shell/history-context";
 import { CarrierPanel, Collapsible, FactsList, FixList, ItemsTable, PreflightStrip, RuleChecklist, StatusSummary } from "../booking/parts";
 import { Button, ConfirmDialog, Notice, Skeleton, cx } from "../ui";
@@ -18,7 +23,7 @@ import { VoiceButton, type VoiceStatus } from "../voice-button";
 import { SendToErpButton } from "../booking/send-to-erp";
 import { EditBookingDialog } from "./edit-booking";
 
-type Pending = { requestId: string; text: string; state: "sending" | "failed"; error?: string; retryable: boolean };
+type Pending = { requestId: string; text: string; state: "sending" | "failed"; error?: string; retryable: boolean; ops?: PatchOp[] };
 
 const FIELD_KEYS = ["sellerName", "originCity", "destinationCity", "destinationType", "readyToShipDate", "sellerPriority", "pallets", "cartons", "totalDeclaredValueGBP", "totalGrossWeightKg", "deliveryAppointmentBooked"] as const;
 
@@ -143,18 +148,19 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
     setMessages((prev) => [...prev, ...r.messages.filter((m) => !prev.some((p) => p.id === m.id))]);
   }
 
-  async function send(raw: string, retryOf?: Pending) {
+  async function send(raw: string, retryOf?: Pending, tapped?: PatchOp[]) {
     const message = raw.trim();
     if (!message || pending?.state === "sending") return;
+    const ops = tapped ?? retryOf?.ops;
     const requestId = retryOf?.retryable ? retryOf.requestId : newRequestId();
-    setPending({ requestId, text: message, state: "sending", retryable: true });
+    setPending({ requestId, text: message, state: "sending", retryable: true, ops });
     setText("");
     stickToBottom.current = true;
     try {
       const id = await ensureBooking();
       const r = await api<TurnResponse>("/api/chat", {
         method: "POST",
-        body: { bookingId: id, expectedRevision: snap?.booking.revision ?? 0, requestId, message },
+        body: { bookingId: id, expectedRevision: snap?.booking.revision ?? 0, requestId, message, ...(ops ? { operations: ops } : {}) },
       });
       applyTurn(r);
       setPending(null);
@@ -167,10 +173,10 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
           const m = await api<MessagesResponse>(`/api/chats/${bookingId}/messages?limit=40`).catch(() => null);
           if (m) setMessages(m.messages);
         }
-        setPending({ requestId, text: message, state: "failed", retryable: false, error: "This booking changed in another tab, so your message wasn't applied. The latest version is loaded — send it again if it still applies." });
+        setPending({ requestId, text: message, state: "failed", retryable: false, ops, error: "This booking changed in another tab, so your message wasn't applied. The latest version is loaded — send it again if it still applies." });
       } else {
         const hint = err.code === "AI_UNAVAILABLE" ? " You can also use Edit booking to enter details directly." : "";
-        setPending({ requestId, text: message, state: "failed", retryable: true, error: `Not saved. ${err.message}${hint}` });
+        setPending({ requestId, text: message, state: "failed", retryable: true, ops, error: `Not saved. ${err.message}${hint}` });
       }
     }
   }
@@ -278,6 +284,11 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
   const canConfirm = evaluation && (evaluation.status === "Ready to submit" || evaluation.status === "Needs attention") && !confirmed;
   const empty = loadState === "ready" && messages.length === 0 && !pending && !upload;
   // The opening message is local: nothing is created or listed in history until the seller actually sends something.
+  const checkDraft = (snap?.draft ?? emptyDraftClient) as DraftBooking;
+  const checkMissing = evaluation?.missingFields ?? missingFields(checkDraft);
+  const checklist = buildChecklist(checkDraft, checkMissing);
+  const choices = choicesFor(checkDraft, checkMissing);
+  const canAnswer = loadState === "ready" && history.sessionReady && !pending && upload?.state !== "reading" && !confirmed && choices.length > 0 && (messages.length > 0 || greet);
   const showGreeting = greet && !olderCursor && loadState === "ready";
 
   return (
@@ -365,6 +376,29 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
                         </div>
                       </div>
                     )}
+                  </li>
+                )}
+                {canAnswer && (
+                  <li className="space-y-3 pl-[34px]" data-testid="quick-replies" aria-label="Tap to answer">
+                    {choices.map((g) => (
+                      <div key={g.key} data-choice-group={g.key}>
+                        <p className="text-caption font-medium text-muted">{g.prompt}</p>
+                        <div className="mt-1.5 flex flex-wrap gap-2">
+                          {g.options.map((o: ChoiceOption) => (
+                            <button
+                              key={o.label}
+                              type="button"
+                              onClick={() => void send(o.say, undefined, o.ops)}
+                              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-control bg-sheet px-3.5 text-small font-medium text-text transition-colors hover:bg-active"
+                              data-choice={o.label}
+                            >
+                              {o.label}
+                              {o.hint && <span className="text-caption font-normal text-muted">{o.hint}</span>}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </li>
                 )}
                 {upload && (
@@ -491,15 +525,10 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
                 </div>
               ) : (
                 <div className="mt-2" data-testid="panel-empty">
-                  <p className="text-small text-muted">Your booking builds here as you describe it. To check it, I need:</p>
-                  <ul className="mt-3 space-y-2 text-sm text-text">
-                    {["The route: UK city to a city in Germany, France or the Netherlands", "What you're sending, with HS code, quantity, price and weight", "Pallets, cartons and total weight", "When it's ready to ship, and the delivery appointment if it's a warehouse"].map((t) => (
-                      <li key={t} className="flex gap-2.5">
-                        <span aria-hidden className="mt-[7px] size-1.5 flex-none rounded-full bg-accent" />
-                        {t}
-                      </li>
-                    ))}
-                  </ul>
+                  <p className="text-small text-muted">Your booking builds here as you describe it. Each detail is ticked off as it arrives.</p>
+                  <div className="mt-4">
+                    <Checklist data={checklist} />
+                  </div>
                   <div className="mt-5">
                     <Collapsible title="What we check before you ship" defaultOpen={false}>
                       <p className="text-small text-muted">Ten checks run automatically as you give details. Nothing has been checked yet.</p>
@@ -550,21 +579,7 @@ export function ChatWorkspace({ initialBookingId }: { initialBookingId: string |
 
                 <FixList rules={evaluation.rules} />
 
-                {evaluation.missingFields.length > 0 && (
-                  <div data-testid="missing-fields">
-                    <h3 className="text-card text-text">
-                      Still needed <span className="num font-normal text-muted">{evaluation.missingFields.length}</span>
-                    </h3>
-                    <ul className="mt-1.5 flex flex-wrap gap-1.5">
-                      {evaluation.missingFields.slice(0, 14).map((m) => (
-                        <li key={m.key} className="rounded-full bg-raised px-2.5 py-1 text-caption text-muted">
-                          {m.label}
-                        </li>
-                      ))}
-                      {evaluation.missingFields.length > 14 && <li className="px-1 py-1 text-caption text-muted">+{evaluation.missingFields.length - 14} more</li>}
-                    </ul>
-                  </div>
-                )}
+                <Checklist data={checklist} />
 
                 <div>
                   <Collapsible title="Carrier and price">
