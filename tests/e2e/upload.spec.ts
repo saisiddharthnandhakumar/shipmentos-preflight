@@ -29,3 +29,19 @@ test("upload planted-error workbook without any chat; open a failed booking", as
   await page.reload();
   await expect(page.getByTestId("count-all")).toHaveText("12");
 });
+
+test("clicking a red spreadsheet issue opens the editor on the missing field, and saving clears it", async ({ page }) => {
+  await page.goto("/upload");
+  await page.getByTestId("xlsx-input").setInputFiles("tests/fixtures/sample-missing-fields.xlsx");
+  await expect(page).toHaveURL(/\/upload\/[0-9a-f-]{36}$/, { timeout: 60_000 });
+  await page.getByTestId("upload-search").fill("BK-402");
+  await page.getByRole("link", { name: "Open details for BK-402" }).click();
+  const detail = page.getByTestId("booking-detail");
+  await detail.getByTestId("issue-card").filter({ hasText: "Seller name" }).click();
+  const seller = page.locator('dialog input[name="sellerName"]');
+  await expect(seller).toBeFocused();
+  await seller.fill("Pennine Textiles");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await page.getByRole("button", { name: "Save and continue" }).click();
+  await expect(detail.getByTestId("issue-card")).toHaveCount(0);
+});

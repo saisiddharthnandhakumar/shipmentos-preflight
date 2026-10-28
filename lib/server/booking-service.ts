@@ -2,6 +2,7 @@ import { todayUK } from "../domain/dates";
 import { evaluateBooking } from "../domain/evaluate";
 import type { DraftBooking, Evaluation, InputIssue } from "../domain/schemas";
 import type { Exec } from "../db/repo";
+import { issueResolvedByDraft } from "../import/parse-xlsx";
 import { issuesForBooking, listRevisions, loadBooking } from "../db/repo";
 import { getCarrierOptions } from "./reference";
 
@@ -50,7 +51,8 @@ export async function bookingSnapshot(db: Exec, sessionId: string, bookingId: st
     column: i.columnName ?? undefined,
     rawValue: i.rawValue ?? undefined,
   }));
-  const evaluation = await evaluateDraft(db, draft, inputIssues);
+  // Import-time issues about a field the seller has since filled in are resolved: don't show them again.
+  const evaluation = await evaluateDraft(db, draft, inputIssues.filter((i) => !issueResolvedByDraft(i, draft)));
   const revisions = (await listRevisions(db, sessionId, bookingId)) ?? [];
   return {
     booking: {

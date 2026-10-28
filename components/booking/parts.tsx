@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { formatLong, formatUK } from "@/lib/domain/dates";
+import { checkHs } from "@/lib/domain/hs";
 import { formatGBP, formatKg, formatNumber } from "@/lib/domain/decimal";
 import type { CarrierAssessment, DraftBooking, DraftItem, Evaluation, InputIssue, RuleResult } from "@/lib/client/types";
 import { Glyph, RuleChip, StatusPill, cx, ruleState } from "../ui";
@@ -298,7 +299,26 @@ export function FactsList({ draft, missingKeys }: { draft: DraftBooking; missing
   );
 }
 
-export function ItemsTable({ items, showRows }: { items: DraftItem[]; showRows?: boolean }) {
+/** Small advisory under an item's HS code when it doesn't look right for the description. */
+function HsFlag({ item, onUse }: { item: DraftItem; onUse?: (itemId: string, code: string) => void }) {
+  const v = checkHs(item.description, item.hsCode);
+  if (v.kind !== "mismatch") return null;
+  const top = v.suggestions[0];
+  return (
+    <span className="mt-0.5 block font-sans text-amber-ink" title={v.message} data-testid="hs-flag">
+      Looks off for this product.{" "}
+      {onUse ? (
+        <button type="button" onClick={() => onUse(item.itemId, top.code)} className="underline underline-offset-2">
+          Use {top.code}?
+        </button>
+      ) : (
+        <>Try {top.code}.</>
+      )}
+    </span>
+  );
+}
+
+export function ItemsTable({ items, showRows, onUseHs }: { items: DraftItem[]; showRows?: boolean; onUseHs?: (itemId: string, code: string) => void }) {
   if (!items.length) return <p className="text-small text-muted">No product lines yet.</p>;
   return (
     <div className="-mx-4 overflow-x-auto px-4">
@@ -323,7 +343,10 @@ export function ItemsTable({ items, showRows }: { items: DraftItem[]; showRows?:
                 <span className="font-mono text-text">{it.sku ?? "—"}</span>
                 <span className="block max-w-[220px] truncate text-muted">{it.description ?? "—"}</span>
               </td>
-              <td className="py-1.5 pr-2 font-mono">{it.hsCode === null ? <span className="text-faint">—</span> : it.hsCode === "" ? <span className="text-red-ink">blank</span> : it.hsCode}</td>
+              <td className="py-1.5 pr-2 font-mono">
+                {it.hsCode === null ? <span className="text-faint">—</span> : it.hsCode === "" ? <span className="text-red-ink">blank</span> : it.hsCode}
+                <HsFlag item={it} onUse={onUseHs} />
+              </td>
               <td className="num py-1.5 pr-2 text-right">{it.quantityUnits != null ? formatNumber(it.quantityUnits) : "—"}</td>
               <td className="num py-1.5 pr-2 text-right">{it.unitPriceGBP != null ? formatGBP(it.unitPriceGBP) : "—"}</td>
               <td className="num py-1.5 pr-2 text-right">

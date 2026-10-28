@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { DESTINATION_CITIES, DESTINATION_COUNTRIES, DESTINATION_TYPES, ITEM_ORIGIN_COUNTRIES, ORIGIN_CITIES, SELLER_PRIORITIES } from "@/lib/domain/reference";
 import type { DraftBooking, PatchOp } from "@/lib/client/types";
+import { HsHint } from "../booking/hs-hint";
 import { Button, Notice } from "../ui";
 
 export type ItemForm = { itemId: string | null; sku: string; description: string; hsCode: string; quantityUnits: string; unitPriceGBP: string; unitsPerCarton: string; cartons: string; unitWeightKg: string; countryOfOrigin: string; removed?: boolean };
@@ -151,6 +152,7 @@ export function BookingFormFields({ b, setB, items, setItems }: { b: FormValues;
                         ))}
                       </select>
                     </label>
+                    <HsHint description={it.description} hsCode={it.hsCode} onUse={(code) => setItems(items.map((x, i) => (i === idx ? { ...x, hsCode: code } : x)))} />
                     <div className="flex items-end">
                       <Button type="button" size="sm" variant="danger" onClick={() => setItems(items.map((x, i) => (i === idx ? { ...x, removed: true } : x)))}>
                         Remove line

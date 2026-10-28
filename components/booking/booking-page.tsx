@@ -242,7 +242,7 @@ export function BookingPage({ bookingId }: { bookingId: string }) {
                   <FactsList draft={snap.draft} missingKeys={missingKeys} />
                 </Collapsible>
                 <Collapsible title="Items" count={String(snap.draft.items.length)}>
-                  <ItemsTable items={snap.draft.items} showRows={!isChat} />
+                  <ItemsTable items={snap.draft.items} showRows={!isChat} onUseHs={(itemId, code) => void saveEdit([{ op: "updateItem", target: { itemId }, changes: { hsCode: code } }])} />
                 </Collapsible>
                 <Collapsible title="Checks that passed" count={`${evaluation.rules.filter((r) => r.status === "pass").length}/10`} defaultOpen={false}>
                   <RuleChecklist rules={evaluation.rules} filter="passing" highlight={highlight} />

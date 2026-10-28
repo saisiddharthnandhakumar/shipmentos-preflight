@@ -356,6 +356,27 @@ const ITEM_FIELD_COLUMN: Record<string, ItemHeader> = {
   countryOfOrigin: "Country of origin",
 };
 
+/**
+ * True when an issue recorded at import no longer applies because the seller has since filled in the field it
+ * pointed at (or added the missing item lines). Structural issues (duplicate IDs, extra rows) never resolve.
+ */
+export function issueResolvedByDraft(issue: Pick<InputIssue, "code" | "sheet" | "row" | "column">, draft: DraftBooking): boolean {
+  if (issue.code === "NO_ITEMS") return draft.items.length > 0;
+  if (!issue.column) return false;
+  if (issue.sheet === "Items") {
+    const field = Object.entries(ITEM_FIELD_COLUMN).find(([, col]) => col === issue.column)?.[0] as keyof DraftItem | undefined;
+    const item = draft.items.find((it) => it.sourceRow === issue.row);
+    return Boolean(field && field !== "sku" && item && item[field] !== null && item[field] !== undefined);
+  }
+  if (issue.sheet === "Bookings") {
+    const field = Object.entries(FIELD_COLUMN).find(([, col]) => col === issue.column)?.[0] as keyof DraftBooking | undefined;
+    if (!field || field === "externalBookingId") return false;
+    if (issue.column === "Destination country") return draft.destinationCountry !== null;
+    return draft[field] !== null && draft[field] !== undefined;
+  }
+  return false;
+}
+
 function columnForField(field: string, isItem: boolean): string {
   return (isItem ? ITEM_FIELD_COLUMN[field] : FIELD_COLUMN[field]) ?? field;
 }
