@@ -42,7 +42,7 @@ export function PreflightStrip({ rules, onSelect }: { rules: RuleResult[]; onSel
 const isFailing = (r: RuleResult) => ruleState(r) === "red" || ruleState(r) === "amber";
 
 /** Failing checks first, each with what is wrong and how to fix it. `filter` lets a view split failing from passing. */
-export function RuleChecklist({ rules, highlight, filter = "all" }: { rules: RuleResult[]; highlight?: string | null; filter?: "all" | "failing" | "passing" }) {
+export function RuleChecklist({ rules, highlight, filter = "all", onEdit }: { rules: RuleResult[]; highlight?: string | null; filter?: "all" | "failing" | "passing"; onEdit?: (ruleId: string, finding: RuleResult["findings"][number]) => void }) {
   const order = (r: RuleResult) => ({ red: 0, amber: 1, na: 2, pass: 3 })[ruleState(r)];
   const sorted = [...rules]
     .filter((r) => (filter === "all" ? true : filter === "failing" ? isFailing(r) : !isFailing(r)))
@@ -65,23 +65,37 @@ export function RuleChecklist({ rules, highlight, filter = "all" }: { rules: Rul
                   <p className="mt-0.5 text-small text-muted">{r.summary}</p>
                 ) : (
                   <ul className="mt-1.5 space-y-1.5">
-                    {r.findings.map((f, i) => (
-                      <li key={i} className="rounded-lg bg-raised px-3 py-2 text-small">
-                        {f.actual || f.expected ? (
-                          <p className="num text-text">
-                            <span className="text-red-ink">{f.actual ?? "—"}</span>
-                            <span className="mx-1.5 text-muted" aria-hidden>→</span>
-                            <span className="sr-only"> should be </span>
-                            {f.expected ?? "—"}
+                    {r.findings.map((f, i) => {
+                      const content = (
+                        <>
+                          {f.actual || f.expected ? (
+                            <p className="num text-text">
+                              <span className="text-red-ink">{f.actual ?? "—"}</span>
+                              <span className="mx-1.5 text-muted" aria-hidden>→</span>
+                              <span className="sr-only"> should be </span>
+                              {f.expected ?? "—"}
+                            </p>
+                          ) : null}
+                          <p className="mt-1 text-muted">{f.message}</p>
+                          <p className="mt-1 text-text">
+                            <span className="font-medium">To fix: </span>
+                            {f.fix}
                           </p>
-                        ) : null}
-                        <p className="mt-1 text-muted">{f.message}</p>
-                        <p className="mt-1 text-text">
-                          <span className="font-medium">To fix: </span>
-                          {f.fix}
-                        </p>
-                      </li>
-                    ))}
+                          {onEdit && <p className="mt-1 text-caption font-medium text-text underline">Edit this in the booking →</p>}
+                        </>
+                      );
+                      return (
+                        <li key={i}>
+                          {onEdit ? (
+                            <button type="button" onClick={() => onEdit(r.ruleId, f)} data-testid="fix-card" className="block w-full rounded-lg bg-raised px-3 py-2 text-left text-small hover:ring-1 hover:ring-control focus-visible:outline-2">
+                              {content}
+                            </button>
+                          ) : (
+                            <div className="rounded-lg bg-raised px-3 py-2 text-small">{content}</div>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </div>
@@ -338,19 +352,34 @@ export function NextSteps({ evaluation }: { evaluation: Evaluation }) {
   );
 }
 
-export function InputIssues({ issues }: { issues: InputIssue[] }) {
+export function InputIssues({ issues, onEdit }: { issues: InputIssue[]; onEdit?: (issue: InputIssue) => void }) {
   const shown = issues.filter((i) => i.severity !== "info");
   if (!shown.length) return null;
   return (
     <ul className="space-y-1.5" data-testid="input-issues">
-      {shown.map((i, n) => (
-        <li key={n} className={cx("rounded-lg px-3 py-2 text-small", i.severity === "error" ? "bg-red-bg text-red-ink" : "bg-amber-bg text-amber-ink")}>
-          <span className="font-medium">{i.severity === "error" ? "Input issue" : "Warning"}</span>
-          {i.row ? <span className="num"> · {i.sheet} row {i.row}</span> : null}
-          {i.column ? <span> · {i.column}</span> : null}
-          <span className="block text-text">{i.message}</span>
-        </li>
-      ))}
+      {shown.map((i, n) => {
+        const cls = cx("block w-full rounded-lg px-3 py-2 text-left text-small", i.severity === "error" ? "bg-red-bg text-red-ink" : "bg-amber-bg text-amber-ink");
+        const content = (
+          <>
+            <span className="font-medium">{i.severity === "error" ? "Input issue" : "Warning"}</span>
+            {i.row ? <span className="num"> · {i.sheet} row {i.row}</span> : null}
+            {i.column ? <span> · {i.column}</span> : null}
+            <span className="block text-text">{i.message}</span>
+            {onEdit && i.sheet !== "Workbook" && <span className="mt-1 block text-caption font-medium text-text underline">Edit this in the booking →</span>}
+          </>
+        );
+        return (
+          <li key={n}>
+            {onEdit && i.sheet !== "Workbook" ? (
+              <button type="button" onClick={() => onEdit(i)} data-testid="issue-card" className={cx(cls, "hover:ring-1 hover:ring-current focus-visible:outline-2")}>
+                {content}
+              </button>
+            ) : (
+              <div className={cls}>{content}</div>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -395,7 +424,7 @@ export function Collapsible({ title, count, children, defaultOpen = true }: { ti
 }
 
 /** The first thing a user needs on any booking: what is wrong, and how to put it right. Hidden when nothing fails. */
-export function FixList({ rules, highlight }: { rules: RuleResult[]; highlight?: string | null }) {
+export function FixList({ rules, highlight, onEdit }: { rules: RuleResult[]; highlight?: string | null; onEdit?: (ruleId: string, finding: RuleResult["findings"][number]) => void }) {
   const failing = rules.filter(isFailing);
   if (!failing.length) return null;
   return (
@@ -404,7 +433,7 @@ export function FixList({ rules, highlight }: { rules: RuleResult[]; highlight?:
         Fix these first <span className="num font-normal text-muted">{failing.length}</span>
       </h2>
       <div className="mt-2">
-        <RuleChecklist rules={rules} filter="failing" highlight={highlight} />
+        <RuleChecklist rules={rules} filter="failing" highlight={highlight} onEdit={onEdit} />
       </div>
     </section>
   );

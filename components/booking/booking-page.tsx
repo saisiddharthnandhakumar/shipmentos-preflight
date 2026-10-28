@@ -4,11 +4,40 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api, ApiClientError, newRequestId } from "@/lib/client/api";
 import { draftReferenceOf } from "@/lib/client/reference";
-import type { BookingSnapshot, PatchOp, TurnResponse } from "@/lib/client/types";
+import type { BookingSnapshot, InputIssue, PatchOp, RuleResult, TurnResponse } from "@/lib/client/types";
 import { EditBookingDialog } from "../chat/edit-booking";
 import { Button, Card, Notice, Skeleton } from "../ui";
 import { SendToErpButton } from "./send-to-erp";
 import { CarrierPanel, Collapsible, FactsList, FixList, InputIssues, ItemsTable, NextSteps, PreflightStrip, RuleChecklist, StatusSummary } from "./parts";
+
+const BOOKING_FIELD_BY_COLUMN: Record<string, string> = {
+  "Seller name": "sellerName",
+  "Origin city": "originCity",
+  "Destination city": "destinationCity",
+  "Destination country": "destinationCity",
+  "Destination type": "destinationType",
+  "Ready to ship date": "readyToShipDate",
+  "Seller priority": "sellerPriority",
+  Pallets: "pallets",
+  Cartons: "cartons",
+  "Total declared value": "totalDeclaredValueGBP",
+  "Total gross weight (kg)": "totalGrossWeightKg",
+  "Delivery appointment booked": "deliveryAppointmentBooked",
+};
+const ITEM_FIELD_BY_COLUMN: Record<string, string> = {
+  SKU: "sku",
+  Description: "description",
+  "HS code": "hsCode",
+  "Quantity (units)": "quantityUnits",
+  "Unit price": "unitPriceGBP",
+  "Units per carton": "unitsPerCarton",
+  Cartons: "cartons",
+  "Unit weight (kg)": "unitWeightKg",
+  "Country of origin": "countryOfOrigin",
+};
+/** Which form field fixes each rule when it is booking-level / item-level. */
+const BOOKING_FIELD_BY_RULE: Record<string, string> = { "R-02": "totalDeclaredValueGBP", "R-04": "cartons", "R-05": "totalGrossWeightKg", "R-07": "totalGrossWeightKg", "R-08": "deliveryAppointmentBooked", "R-10": "readyToShipDate" };
+const ITEM_FIELD_BY_RULE: Record<string, string> = { "R-01": "hsCode", "R-03": "cartons", "R-06": "description", "R-09": "countryOfOrigin" };
 
 function confirmationLine(e: BookingSnapshot["evaluation"]): string {
   const c = e.carrier.candidates.find((x) => x.option.key === e.carrier.chosenKey);
@@ -26,6 +55,7 @@ export function BookingPage({ bookingId }: { bookingId: string }) {
   const [reload, setReload] = useState(0);
   const [highlight, setHighlight] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  const [focusField, setFocusField] = useState<string | null>(null);
   const [editBusy, setEditBusy] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
@@ -44,6 +74,25 @@ export function BookingPage({ bookingId }: { bookingId: string }) {
   const jump = (id: string) => {
     setHighlight(id);
     document.getElementById(`rule-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  const openEditor = (field: string | null) => {
+    setFocusField(field);
+    setEditing(true);
+  };
+  const editIssue = (i: InputIssue) => {
+    if (!snap) return openEditor(null);
+    if (i.sheet === "Items") {
+      const idx = snap.draft.items.findIndex((it) => it.sourceRow === i.row);
+      const key = Object.entries(ITEM_FIELD_BY_COLUMN).find(([col]) => col === i.column)?.[1];
+      return openEditor(idx >= 0 ? `items.${idx}.${key ?? "sku"}` : null);
+    }
+    openEditor(BOOKING_FIELD_BY_COLUMN[i.column ?? ""] ?? null);
+  };
+  const editFinding = (ruleId: string, f: RuleResult["findings"][number]) => {
+    const idx = f.itemId && snap ? snap.draft.items.findIndex((it) => it.itemId === f.itemId) : -1;
+    if (idx >= 0) return openEditor(`items.${idx}.${ITEM_FIELD_BY_RULE[ruleId] ?? "sku"}`);
+    openEditor(BOOKING_FIELD_BY_RULE[ruleId] ?? null);
   };
 
   async function saveEdit(ops: PatchOp[]) {
@@ -135,7 +184,7 @@ export function BookingPage({ bookingId }: { bookingId: string }) {
                     Open conversation
                   </Link>
                 )}
-                <Button onClick={() => setEditing(true)} data-testid="edit-booking">
+                <Button onClick={() => openEditor(null)} data-testid="edit-booking">
                   Edit booking
                 </Button>
                 {canConfirm && (
@@ -165,14 +214,14 @@ export function BookingPage({ bookingId }: { bookingId: string }) {
                   </div>
                 )}
                 <PreflightStrip rules={evaluation.rules} onSelect={jump} />
-                <FixList rules={evaluation.rules} highlight={highlight} />
+                <FixList rules={evaluation.rules} highlight={highlight} onEdit={editFinding} />
                 {nothingToFix && !hasIssues && <p className="rounded-xl bg-pass-bg px-4 py-3 text-sm text-pass-ink">All ten checks pass. Nothing needs fixing.</p>}
                 {hasIssues && (
                   <section aria-labelledby="issues-h">
                     <h2 id="issues-h" className="mb-2 text-heading text-text">
                       Spreadsheet issues
                     </h2>
-                    <InputIssues issues={evaluation.inputIssues} />
+                    <InputIssues issues={evaluation.inputIssues} onEdit={editIssue} />
                   </section>
                 )}
                 <section aria-labelledby="next-h" data-testid="what-next">
@@ -231,6 +280,7 @@ export function BookingPage({ bookingId }: { bookingId: string }) {
         <EditBookingDialog
           open={editing}
           draft={snap.draft}
+          focusField={focusField}
           onClose={() => {
             setEditing(false);
             setEditError(null);

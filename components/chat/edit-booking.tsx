@@ -173,7 +173,7 @@ export function BookingFormFields({ b, setB, items, setItems }: { b: FormValues;
 }
 
 /** Manual editor: produces the same typed patch operations as the chat, saved via the version-safe PATCH. */
-export function EditBookingDialog({ open, draft, onClose, onSubmit, busy, error }: { open: boolean; draft: DraftBooking; onClose: () => void; onSubmit: (ops: PatchOp[]) => void; busy: boolean; error: string | null }) {
+export function EditBookingDialog({ open, draft, onClose, onSubmit, busy, error, focusField }: { focusField?: string | null; open: boolean; draft: DraftBooking; onClose: () => void; onSubmit: (ops: PatchOp[]) => void; busy: boolean; error: string | null }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [b, setB] = useState<Record<string, string>>({});
   const [items, setItems] = useState<ItemForm[]>([]);
@@ -190,8 +190,16 @@ export function EditBookingDialog({ open, draft, onClose, onSubmit, busy, error 
       setItems(formFromDraft(draft).items);
       /* eslint-enable react-hooks/set-state-in-effect */
       if (!d.open) d.showModal();
+      if (focusField) {
+        // Wait for the form to render the reset values, then jump to the field the user clicked through from.
+        requestAnimationFrame(() => {
+          const el = d.querySelector<HTMLElement>(`[name="${focusField}"]`);
+          el?.scrollIntoView({ block: "center" });
+          el?.focus();
+        });
+      }
     } else if (d.open) d.close();
-  }, [open, draft]);
+  }, [open, draft, focusField]);
 
   return (
     <dialog
